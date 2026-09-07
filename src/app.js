@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
@@ -11,6 +12,35 @@ const format = require('./lib/format');
 const dates = require('./lib/dates');
 
 /**
+ * Findet das Verzeichnis mit den EJS-Vorlagen.
+ *
+ * Lokal liegt es neben dieser Datei. Auf Netlify bündelt esbuild den Quelltext
+ * zu einer einzelnen Datei unter netlify/functions/, wodurch __dirname nicht
+ * mehr auf src/ zeigt; die Vorlagen selbst landen über `included_files` unter
+ * /var/task/src/views. Deshalb werden mehrere Orte geprüft und der erste
+ * genommen, in dem die Vorlagen tatsächlich liegen.
+ */
+function resolveViewsDir() {
+  const candidates = [
+    path.join(__dirname, 'views'),
+    path.join(process.cwd(), 'src', 'views'),
+    path.join(config.root, 'src', 'views'),
+    path.join(config.root, 'views'),
+  ];
+  const found = candidates.find((dir) => {
+    try {
+      return fs.existsSync(path.join(dir, 'error.ejs'));
+    } catch {
+      return false;
+    }
+  });
+  if (!found) {
+    console.error('Vorlagen nicht gefunden. Gesucht in:', candidates.join(', '));
+  }
+  return found || candidates[0];
+}
+
+/**
  * Baut die Express-App. Bewusst ohne listen() und ohne Scheduler, damit
  * dieselbe App sowohl lokal als Server als auch auf Netlify als Function läuft.
  */
@@ -18,7 +48,7 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
   const app = express();
 
   app.set('view engine', 'ejs');
-  app.set('views', path.join(__dirname, 'views'));
+  app.set('views', resolveViewsDir());
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 

@@ -126,6 +126,20 @@ async function tx(fn) {
 }
 
 /**
+ * Findet schema.sql. Auf Netlify bündelt esbuild den Quelltext zu einer Datei
+ * unter netlify/functions/, wodurch __dirname nicht mehr auf src/ zeigt – die
+ * Datei selbst kommt über `included_files` nach /var/task/src/.
+ */
+function schemaPath() {
+  const candidates = [
+    path.join(__dirname, 'schema.sql'),
+    path.join(process.cwd(), 'src', 'schema.sql'),
+    path.join(config.root, 'src', 'schema.sql'),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || candidates[0];
+}
+
+/**
  * Legt fehlende Tabellen an. Idempotent und darf beliebig oft laufen.
  *
  * Der Advisory Lock ist wichtig: Auf Netlify können mehrere kalte
@@ -135,7 +149,7 @@ async function tx(fn) {
  * warten kurz und finden die Tabellen dann vor.
  */
 async function migrate() {
-  const ddl = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  const ddl = fs.readFileSync(schemaPath(), 'utf8');
   const pool = await getPool();
   const client = await pool.connect();
   try {

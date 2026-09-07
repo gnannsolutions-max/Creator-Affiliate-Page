@@ -1,0 +1,86 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Übersicht</h1>
+    <p>
+      <% if (run) { %>
+        Letzter Dashboard-Stand: <strong><%= run.as_of_label %></strong> (<%= run.triggered_by === 'cron' ? 'automatisch' : 'manuell' %>) ·
+        nächster Lauf um <%= refreshTime %>
+      <% } else { %>
+        Noch kein Snapshot erzeugt. Creator sehen bis zum ersten Lauf keine Zahlen.
+      <% } %>
+    </p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <% if (!hasSmtp) { %>
+    <div class="note note--warn">
+      <p><strong>Kein SMTP-Zugang hinterlegt.</strong> Das Portal verschickt keine E-Mails – es funktioniert trotzdem vollständig.</p>
+      <p>Jede Freigabe- und Login-Nachricht steht mitsamt Link unter <a href="/admin/mails">Nachrichten</a>. Kopiere den Link und schick ihn dem Creator selbst. Wenn das Portal die Mails übernehmen soll, trage <code class="mono">SMTP_HOST</code> und Zugangsdaten in den Umgebungsvariablen ein.</p>
+    </div>
+  <% } %>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Offene Bewerbungen</div>
+      <div class="stat-value"><%= num(counts.pending) %></div>
+      <div class="stat-sub"><a href="/admin/creators?status=pending">Ansehen</a></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Aktive Creator</div>
+      <div class="stat-value"><%= num(counts.approved) %></div>
+      <div class="stat-sub"><%= num(counts.paused) %> pausiert</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Umsatz 30 Tage</div>
+      <div class="stat-value"><%= money(totals.revenue30) %></div>
+      <div class="stat-sub"><%= num(totals.orders30) %> Bestellungen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Offene Provisionen</div>
+      <div class="stat-value"><%= money(totals.commissionOpen) %></div>
+      <div class="stat-sub"><a href="/admin/payouts">Auszahlungen</a></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="actions">
+      <form method="post" action="/admin/refresh">
+        <button class="btn" type="submit">Dashboard jetzt aktualisieren</button>
+      </form>
+      <a class="btn btn--ghost" href="/admin/import">Umsatz-CSV hochladen</a>
+      <span class="small muted">Der automatische Lauf startet täglich um <%= refreshTime %> (<%= timezone %>).</span>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Top-Creator nach Umsatz (30 Tage)</h2>
+      <span class="sub">Stand des letzten Snapshots</span>
+    </div>
+    <% if (!top.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Umsätze im Snapshot.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Creator</th><th>Code</th><th class="num">Bestellungen</th><th class="num">Umsatz</th><th class="num">Provision</th></tr></thead>
+        <tbody>
+          <% top.forEach(function (t) { %>
+          <tr>
+            <td><a href="/admin/creators/<%= t.id %>"><%= t.full_name %></a></td>
+            <td class="mono"><%= t.assigned_code %></td>
+            <td class="num"><%= num(t.orders_30d) %></td>
+            <td class="num"><%= money(t.revenue_30d) %></td>
+            <td class="num"><%= money(t.commission_30d) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

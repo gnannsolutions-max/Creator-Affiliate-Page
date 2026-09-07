@@ -1,0 +1,153 @@
+<%- include('partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Hallo <%= creator.full_name.split(' ')[0] %></h1>
+    <p>
+      <% if (run) { %>
+        Stand: <strong><%= run.as_of_label %></strong> · nächste Aktualisierung morgen um 11:00 Uhr
+      <% } else { %>
+        Die erste Aktualisierung läuft morgen um 11:00 Uhr.
+      <% } %>
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="code-display">
+      <div>
+        <div class="stat-label">Dein Code</div>
+        <div class="code-value"><%= creator.assigned_code %></div>
+      </div>
+      <div>
+        <div class="stat-label">Deine Provision</div>
+        <div class="stat-value" style="font-size:20px"><%= percent(creator.commission_rate) %></div>
+      </div>
+      <div>
+        <div class="stat-label">Rabatt für deine Community</div>
+        <div class="stat-value" style="font-size:20px"><%= percent(creator.customer_discount) %></div>
+      </div>
+      <button class="btn btn--ghost btn--sm" type="button" data-copy="<%= creator.assigned_code %>" style="margin-left:auto">Code kopieren</button>
+    </div>
+  </div>
+
+  <% if (!totals) { %>
+    <div class="note note--info">
+      <p><strong>Noch keine Zahlen.</strong> Sobald über deinen Code die erste Bestellung eingeht, siehst du sie hier beim nächsten Lauf um 11:00 Uhr.</p>
+    </div>
+  <% } else { %>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Umsatz gesamt</div>
+      <div class="stat-value"><%= money(totals.revenue_total) %></div>
+      <div class="stat-sub"><%= num(totals.orders_total) %> <%= totals.orders_total === 1 ? 'Bestellung' : 'Bestellungen' %></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Provision gesamt</div>
+      <div class="stat-value"><%= money(totals.commission_total) %></div>
+      <div class="stat-sub"><%= money(totals.commission_open) %> davon offen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Umsatz 30 Tage</div>
+      <div class="stat-value"><%= money(totals.revenue_30d) %></div>
+      <% const d = delta(totals.revenue_30d, totals.revenue_prev30d); %>
+      <div class="stat-delta <%= d.direction %>"><%= d.text %> vs. 30 Tage davor</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Ø Bestellwert</div>
+      <div class="stat-value"><%= money(totals.avg_order_value) %></div>
+      <div class="stat-sub">
+        <% if (totals.last_sale_date) { %>letzte Bestellung <%= formatDateDe(totals.last_sale_date) %><% } else { %>–<% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Umsatz der letzten 30 Tage</h2>
+      <span class="sub">Nur bestätigte Bestellungen · Retouren fallen wieder heraus</span>
+    </div>
+    <div class="card-body">
+      <%- chartHtml %>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Bestellungen</h2>
+      <span class="sub"><%= num(orders.length) %> zuletzt erfasst</span>
+    </div>
+    <% if (!orders.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Bestellungen erfasst.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Bestellung</th>
+            <th>Status</th>
+            <th class="num">Umsatz</th>
+            <th class="num">Deine Provision</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach(function (o) { %>
+          <tr>
+            <td><%= formatDateDe(o.order_date) %></td>
+            <td class="mono"><%= o.order_ref %></td>
+            <td>
+              <span class="badge badge--<%= o.status === 'confirmed' ? 'good' : (o.status === 'pending' ? 'warn' : 'danger') %>"><%= statusLabel(o.status) %></span>
+            </td>
+            <td class="num"><%= money(o.revenue) %></td>
+            <td class="num"><%= o.commission ? money(o.commission) : '–' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Auszahlungen</h2></div>
+    <% if (!payouts.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Auszahlung angelegt. Abgerechnet wird monatlich.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Zeitraum</th><th>Status</th><th class="num">Betrag</th><th>Ausgezahlt am</th></tr></thead>
+        <tbody>
+          <% payouts.forEach(function (p) { %>
+          <tr>
+            <td><%= p.period %></td>
+            <td><span class="badge badge--<%= p.status === 'paid' ? 'good' : 'neutral' %>"><%= statusLabel(p.status) %></span></td>
+            <td class="num"><%= money(p.amount) %></td>
+            <td><%= p.paid_at ? formatDateDe(p.paid_at) : '–' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+  <% } %>
+
+  <div class="note note--info">
+    <p><strong>Kurz zur Erinnerung:</strong> Beiträge mit deinem Code immer als Werbung kennzeichnen, keine Heilversprechen, keine Krankheitsbezüge. Die vollständigen Regeln stehen unter <a href="/regeln">Werberegeln</a>.</p>
+  </div>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('partials/foot') %>

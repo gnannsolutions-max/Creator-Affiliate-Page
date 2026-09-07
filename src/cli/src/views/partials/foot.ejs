@@ -1,0 +1,39 @@
+<footer class="footer">
+  <p>
+    <%= program.brand %> Creator Programm ·
+    <a href="/teilnahmebedingungen">Teilnahmebedingungen</a> ·
+    <a href="/datenschutz">Datenschutz</a> ·
+    <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a>
+  </p>
+</footer>
+
+<div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  var tip = document.getElementById('tooltip');
+  if (!tip) return;
+  function show(e, text) {
+    tip.textContent = text;
+    tip.style.left = e.clientX + 'px';
+    tip.style.top = e.clientY + 'px';
+    tip.classList.add('is-visible');
+  }
+  function hide() { tip.classList.remove('is-visible'); }
+  document.addEventListener('mousemove', function (e) {
+    var col = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (col) show(e, col.getAttribute('data-tip'));
+    else hide();
+  });
+  document.addEventListener('mouseleave', hide);
+  // Touch: Antippen eines Balkens zeigt den Wert ebenfalls an
+  document.addEventListener('touchstart', function (e) {
+    var col = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (!col) return hide();
+    var t = e.touches[0];
+    show({ clientX: t.clientX, clientY: t.clientY }, col.getAttribute('data-tip'));
+    setTimeout(hide, 2500);
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

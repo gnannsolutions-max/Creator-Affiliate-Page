@@ -1,0 +1,19 @@
+<%- include('../partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Admin-Login</h1>
+  </div>
+  <div class="card">
+    <% if (error) { %><div class="note note--danger"><p><%= error %></p></div><% } %>
+    <form method="post" action="/admin/login">
+      <div class="field">
+        <label for="password">Passwort</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
+      </div>
+      <button class="btn btn--wide" type="submit">Anmelden</button>
+    </form>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

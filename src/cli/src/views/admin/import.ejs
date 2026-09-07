@@ -1,0 +1,87 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Umsätze importieren</h1>
+    <p>Tägliche Bestellliste als CSV hochladen. Die Zahlen werden im Creator-Dashboard erst beim nächsten Lauf um <%= refreshTime %> sichtbar.</p>
+  </div>
+
+  <% if (result) { %>
+    <div class="note note--<%= result.ok ? 'good' : 'danger' %>">
+      <% if (result.ok) { %>
+        <p><strong><%= num(result.inserted) %> neu, <%= num(result.updated) %> aktualisiert, <%= num(result.skipped) %> übersprungen</strong> (von <%= num(result.total) %> Zeilen).</p>
+        <% if (result.unknownCodes && result.unknownCodes.length) { %>
+          <p><strong>Unbekannte Codes:</strong>
+            <%= result.unknownCodes.map(function (u) { return u.code + ' (' + u.count + ')'; }).join(', ') %>
+            – diese Bestellungen sind gespeichert, werden aber niemandem zugeordnet.</p>
+        <% } %>
+      <% } else { %>
+        <p><strong>Import nicht möglich.</strong></p>
+      <% } %>
+      <% if (result.problems && result.problems.length) { %>
+        <p class="small"><%= result.problems.slice(0, 12).join(' · ') %><%= result.problems.length > 12 ? ' · …' : '' %></p>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <form method="post" action="/admin/import" enctype="multipart/form-data">
+      <div class="field">
+        <label for="file">CSV-Datei</label>
+        <p class="hint">Trennzeichen , ; oder Tab. Beträge mit Komma oder Punkt. Maximal 10 MB.</p>
+        <input type="file" id="file" name="file" accept=".csv,text/csv,text/plain" required>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Importieren</button>
+        <a class="btn btn--ghost" href="/admin/import/vorlage.csv">Vorlage herunterladen</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Erwartete Spalten</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Feld</th><th>Pflicht</th><th>Erkannte Spaltennamen</th></tr></thead>
+        <tbody>
+          <tr><td>Bestellnummer</td><td>ja</td><td class="small mono">order_ref, bestellnummer, order_id, name</td></tr>
+          <tr><td>Code</td><td>ja</td><td class="small mono">code, rabattcode, gutscheincode, discount_code, coupon</td></tr>
+          <tr><td>Datum</td><td>ja</td><td class="small mono">order_date, datum, bestelldatum, created_at</td></tr>
+          <tr><td>Bruttobetrag</td><td>ja</td><td class="small mono">gross_amount, brutto, total, umsatz</td></tr>
+          <tr><td>Provisionsbasis</td><td>nein</td><td class="small mono">net_amount, netto, subtotal – ohne diese Spalte wird der Bruttobetrag verwendet</td></tr>
+          <tr><td>Status</td><td>nein</td><td class="small mono">status, financial_status – „refunded“ und „cancelled“ entfernen die Provision</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Bestehende Bestellnummern werden aktualisiert statt doppelt angelegt. Ihr könnt also gefahrlos denselben Export mehrfach hochladen oder eine Datei mit Retouren nachreichen.
+    </p>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Letzte Importe</h2></div>
+    <% if (!imports.length) { %>
+      <div class="card-body"><p class="empty">Noch kein Import.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Datei</th><th>Zeitpunkt</th><th class="num">Zeilen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th class="num">Übersprungen</th></tr></thead>
+        <tbody>
+          <% imports.forEach(function (i) { %>
+          <tr>
+            <td class="mono small"><%= i.filename %></td>
+            <td class="small"><%= formatDateTimeDe(i.created_at) %></td>
+            <td class="num"><%= num(i.rows_total) %></td>
+            <td class="num"><%= num(i.rows_inserted) %></td>
+            <td class="num"><%= num(i.rows_updated) %></td>
+            <td class="num"><%= num(i.rows_skipped) %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

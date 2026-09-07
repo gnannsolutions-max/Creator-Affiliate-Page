@@ -1,0 +1,29 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Bewerbung ist da</h1>
+    <p>Danke, <%= creatorName %>. Wir haben deine Bewerbung erhalten.</p>
+  </div>
+
+  <div class="card">
+    <div class="note note--good">
+      <p><strong>Wichtig:</strong> Bitte starte noch nicht mit der Bewerbung. Dein Code ist erst aktiv, wenn wir ihn freigegeben haben – vorher würden Bestellungen nicht dir zugeordnet.</p>
+    </div>
+
+    <div class="code-display">
+      <div>
+        <div class="stat-label">Beantragter Code</div>
+        <div class="code-value"><%= requestedCode %></div>
+      </div>
+      <span class="badge badge--warn">In Prüfung</span>
+    </div>
+
+    <p class="small muted" style="margin-top:16px">
+      Wir melden uns per E-Mail an <strong><%= email %></strong>, in der Regel innerhalb von zwei Werktagen.
+      Deinen Status kannst du jederzeit über den <a href="/login">Login</a> abrufen.
+    </p>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

@@ -1,0 +1,68 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Creator</h1>
+    <p>Bewerbungen prüfen, Codes vergeben, Zusammenarbeit steuern.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <div class="card">
+    <div class="actions">
+      <% ['pending','approved','paused','rejected','all'].forEach(function (s) { %>
+        <a class="btn btn--sm <%= status === s ? '' : 'btn--ghost' %>" href="/admin/creators?status=<%= s %>">
+          <%= { pending: 'Offen', approved: 'Aktiv', paused: 'Pausiert', rejected: 'Abgelehnt', all: 'Alle' }[s] %>
+          (<%= counts[s] %>)
+        </a>
+      <% }); %>
+      <span class="small muted" style="margin-left:auto">
+        Einladungslink: <code class="mono"><%= baseUrl %>/?src=KAMPAGNE</code>
+      </span>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Keine Einträge in dieser Ansicht.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Kanäle</th><th>Code</th><th>Status</th>
+            <th class="num">Provision</th><th>Eingegangen</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(function (c) { %>
+          <tr>
+            <td>
+              <strong><%= c.full_name %></strong><br>
+              <span class="small muted"><%= c.email %></span>
+            </td>
+            <td class="small">
+              <a href="https://instagram.com/<%= c.instagram %>" target="_blank" rel="noopener">@<%= c.instagram %></a>
+              <% if (c.tiktok) { %><br><span class="muted">TikTok:</span> @<%= c.tiktok %><% } %>
+              <% if (c.youtube) { %><br><span class="muted">YT:</span> @<%= c.youtube %><% } %>
+            </td>
+            <td class="mono">
+              <%= c.assigned_code || c.requested_code %>
+              <% if (!c.assigned_code) { %><br><span class="small muted">Wunsch</span><% } %>
+            </td>
+            <td>
+              <span class="badge badge--<%= c.status === 'approved' ? 'good' : (c.status === 'pending' ? 'warn' : (c.status === 'paused' ? 'neutral' : 'danger')) %>"><%= statusLabel(c.status) %></span>
+            </td>
+            <td class="num"><%= c.status === 'approved' || c.status === 'paused' ? percent(c.commission_rate) : '–' %></td>
+            <td class="small"><%= formatDateDe(c.created_at) %></td>
+            <td><a class="btn btn--ghost btn--sm" href="/admin/creators/<%= c.id %>">Öffnen</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

@@ -1,0 +1,121 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Creator-Code beantragen</h1>
+    <p>Du bekommst deinen eigenen Rabattcode, deine Community bekommt <%= program.defaultCustomerDiscount %> % Rabatt, und du siehst jeden Tag, was dein Code umgesetzt hat.</p>
+  </div>
+
+  <% if (Object.keys(errors).length) { %>
+    <div class="note note--danger">
+      <p><strong>Da fehlt noch etwas.</strong> Bitte sieh dir die markierten Felder an.</p>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <form method="post" action="/bewerben" novalidate>
+      <input type="hidden" name="src" value="<%= src %>">
+
+      <div class="field">
+        <label for="full_name">Vollständiger Name</label>
+        <input type="text" id="full_name" name="full_name" autocomplete="name" required
+               value="<%= values.full_name || '' %>"
+               <%= errors.full_name ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.full_name) { %><p class="field-error"><%= errors.full_name %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="email">E-Mail-Adresse</label>
+        <p class="hint">Hierüber läuft die Freigabe und dein Login zum Dashboard.</p>
+        <input type="email" id="email" name="email" autocomplete="email" required
+               value="<%= values.email || '' %>"
+               <%= errors.email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.email) { %><p class="field-error"><%= errors.email %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="requested_code">Wunsch-Code</label>
+        <p class="hint">3 bis 20 Zeichen, nur Buchstaben und Zahlen. Meistens der eigene Name – z. B. LUAN15.</p>
+        <input type="text" id="requested_code" name="requested_code" required
+               style="text-transform:uppercase" maxlength="20" spellcheck="false"
+               value="<%= values.requested_code || '' %>"
+               <%= errors.requested_code ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.requested_code) { %><p class="field-error"><%= errors.requested_code %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="instagram">Instagram</label>
+        <div class="input-prefix">
+          <span>@</span>
+          <input type="text" id="instagram" name="instagram" required spellcheck="false"
+                 placeholder="deinname" value="<%= values.instagram || '' %>"
+                 <%= errors.instagram ? 'aria-invalid="true"' : '' %>>
+        </div>
+        <% if (errors.instagram) { %><p class="field-error"><%= errors.instagram %></p><% } %>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="tiktok">TikTok <span class="optional">– freiwillig</span></label>
+          <div class="input-prefix">
+            <span>@</span>
+            <input type="text" id="tiktok" name="tiktok" spellcheck="false"
+                   placeholder="deinname" value="<%= values.tiktok || '' %>"
+                   <%= errors.tiktok ? 'aria-invalid="true"' : '' %>>
+          </div>
+          <% if (errors.tiktok) { %><p class="field-error"><%= errors.tiktok %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label for="youtube">YouTube <span class="optional">– freiwillig</span></label>
+          <div class="input-prefix">
+            <span>@</span>
+            <input type="text" id="youtube" name="youtube" spellcheck="false"
+                   placeholder="deinkanal" value="<%= values.youtube || '' %>"
+                   <%= errors.youtube ? 'aria-invalid="true"' : '' %>>
+          </div>
+          <% if (errors.youtube) { %><p class="field-error"><%= errors.youtube %></p><% } %>
+        </div>
+      </div>
+
+      <div class="note note--info">
+        <p><strong>Bevor du zustimmst – die drei Regeln, die wirklich zählen:</strong></p>
+        <p>1. Jeder Beitrag mit deinem Code wird als Werbung gekennzeichnet.<br>
+           2. Keine Heil-, Therapie- oder Krankheitsversprechen zu unseren Produkten.<br>
+           3. Kein Bewerben verschreibungspflichtiger oder injizierbarer Präparate im selben Kanal.</p>
+      </div>
+
+      <div class="checkline">
+        <input type="checkbox" id="accept_terms" name="accept_terms" value="1"
+               <%= values.accept_terms ? 'checked' : '' %>>
+        <label for="accept_terms">
+          Ich habe die <a href="/teilnahmebedingungen" target="_blank">Teilnahme- und Werberegeln</a> gelesen und halte mich daran.
+        </label>
+      </div>
+      <% if (errors.accept_terms) { %><p class="field-error" style="margin-top:-6px;margin-bottom:12px"><%= errors.accept_terms %></p><% } %>
+
+      <div class="checkline">
+        <input type="checkbox" id="accept_privacy" name="accept_privacy" value="1"
+               <%= values.accept_privacy ? 'checked' : '' %>>
+        <label for="accept_privacy">
+          Ich bin mit der Verarbeitung meiner Daten gemäß <a href="/datenschutz" target="_blank">Datenschutzhinweisen</a> einverstanden.
+        </label>
+      </div>
+      <% if (errors.accept_privacy) { %><p class="field-error" style="margin-top:-6px;margin-bottom:12px"><%= errors.accept_privacy %></p><% } %>
+
+      <button class="btn btn--wide" type="submit">Code beantragen</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Wie es weitergeht</h2>
+    <ol class="steps">
+      <li class="current"><strong>Bewerbung abschicken</strong><p>Dauert eine Minute.</p></li>
+      <li><strong>Wir prüfen und geben frei</strong><p>In der Regel innerhalb von zwei Werktagen. Du bekommst eine E-Mail.</p></li>
+      <li><strong>Loslegen</strong><p>Erst nach der Freigabe – vorher ist der Code nicht aktiv.</p></li>
+      <li><strong>Dashboard</strong><p>Deine Sales, jeden Tag um 11:00 Uhr aktualisiert.</p></li>
+    </ol>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

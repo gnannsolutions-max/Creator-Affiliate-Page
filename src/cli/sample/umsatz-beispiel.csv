@@ -1,0 +1,6 @@
+Bestellnummer;Rabattcode;Bestelldatum;Brutto;Netto;Status
+9001;luan15;04.09.2026;89,90;75,55;bezahlt
+9002;LUAN15;04.09.2026;1.249,00;1.049,58;paid
+9003;mira10;03.09.2026;45,00;37,82;bezahlt
+9004;UNBEKANNT;03.09.2026;99,00;83,19;paid
+9005;LUAN15;kaputt;12,00;10,00;paid

@@ -1,0 +1,28 @@
+[build]
+  # public/ enthält nur statische Dateien (styles.css). Alles andere rendert
+  # die Express-App in der Function.
+  publish = "public"
+  # Legt fehlende Tabellen an. Läuft bei jedem Deploy und ist idempotent.
+  command = "node src/cli/migrate.js"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
+  # Diese Pakete nicht mitbündeln – sie laden Dateien bzw. Module dynamisch
+  # und vertragen sich schlecht mit dem Bundler.
+  external_node_modules = ["express", "ejs", "pg", "pg-native", "nodemailer", "multer"]
+  # Die EJS-Templates gehören ins Function-Bundle, sonst findet Express keine Views.
+  included_files = ["src/views/**"]
+
+# Tägliche Aktualisierung: stündlich in UTC, die Function entscheidet selbst,
+# ob in Europe/Berlin gerade die konfigurierte Stunde ist (Sommerzeit!).
+[functions."snapshot"]
+  schedule = "0 * * * *"
+
+# Alles, was keine vorhandene statische Datei ist, geht an die Express-App.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/app/:splat"
+  status = 200

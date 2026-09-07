@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title><%= title %> · <%= program.name %></title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="<%= creator ? '/dashboard' : (admin ? '/admin' : '/') %>"><%= program.brand %> <span class="muted">Creator</span></a>
+    <nav class="topnav">
+      <% if (admin) { %>
+        <a href="/admin" <%= nav === 'admin-home' ? 'class="is-active"' : '' %>>Übersicht</a>
+        <a href="/admin/creators" <%= nav === 'admin-creators' ? 'class="is-active"' : '' %>>Creator</a>
+        <a href="/admin/import" <%= nav === 'admin-import' ? 'class="is-active"' : '' %>>Umsätze</a>
+        <a href="/admin/payouts" <%= nav === 'admin-payouts' ? 'class="is-active"' : '' %>>Auszahlungen</a>
+        <a href="/admin/mails" <%= nav === 'admin-mails' ? 'class="is-active"' : '' %>>Nachrichten</a>
+        <a href="/admin/logout">Abmelden</a>
+      <% } else if (creator && creator.status === 'approved') { %>
+        <a href="/dashboard" <%= nav === 'dashboard' ? 'class="is-active"' : '' %>>Dashboard</a>
+        <a href="/regeln" <%= nav === 'rules' ? 'class="is-active"' : '' %>>Werberegeln</a>
+        <a href="/logout">Abmelden</a>
+      <% } else if (creator) { %>
+        <a href="/status" <%= nav === 'status' ? 'class="is-active"' : '' %>>Status</a>
+        <a href="/logout">Abmelden</a>
+      <% } else { %>
+        <a href="/" <%= nav === 'apply' ? 'class="is-active"' : '' %>>Bewerben</a>
+        <a href="/login" <%= nav === 'login' ? 'class="is-active"' : '' %>>Login</a>
+      <% } %>
+    </nav>
+  </div>
+</header>

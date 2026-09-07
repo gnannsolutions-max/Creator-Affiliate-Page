@@ -1,0 +1,33 @@
+{
+  "name": "creator-affiliate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Creator-Affiliate-Portal: Bewerbung, Code-Freigabe und tagesaktuelles Sales-Dashboard",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/cli/migrate.js",
+    "refresh": "node src/cli/refresh.js",
+    "import": "node src/cli/import.js",
+    "seed": "node src/cli/seed.js",
+    "netlify:dev": "netlify dev",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@netlify/functions": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "multer": "^2.3.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^9.1.1",
+    "pg": "^8.23.0",
+    "serverless-http": "^4.0.0"
+  }
+}

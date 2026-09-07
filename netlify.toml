@@ -22,7 +22,7 @@
     "@netlify/database",
   ]
   # Die EJS-Templates gehören ins Function-Bundle, sonst findet Express keine Views.
-  included_files = ["src/views/**"]
+  included_files = ["src/views/**", "src/schema.sql"]
 
 # Tägliche Aktualisierung: stündlich in UTC, die Function entscheidet selbst,
 # ob in Europe/Berlin gerade die konfigurierte Stunde ist (Sommerzeit!).

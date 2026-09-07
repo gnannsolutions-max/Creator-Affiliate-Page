@@ -1,0 +1,39 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Deine Bewerbung</h1>
+    <p>Hallo <%= creator.full_name.split(' ')[0] %> – hier ist der aktuelle Stand.</p>
+  </div>
+
+  <div class="card">
+    <% if (creator.status === 'pending') { %>
+      <div class="note note--warn">
+        <p><strong>In Prüfung.</strong> Bitte warte mit der Bewerbung, bis dein Code freigegeben ist – vorher werden Bestellungen nicht dir zugeordnet.</p>
+      </div>
+      <div class="code-display">
+        <div>
+          <div class="stat-label">Beantragter Code</div>
+          <div class="code-value"><%= creator.requested_code %></div>
+        </div>
+        <span class="badge badge--warn">In Prüfung</span>
+      </div>
+    <% } else if (creator.status === 'rejected') { %>
+      <div class="note note--danger">
+        <p><strong>Wir konnten dir keinen Code vergeben.</strong></p>
+        <% if (creator.decision_reason) { %><p><%= creator.decision_reason %></p><% } %>
+      </div>
+      <p class="small muted">Bei Rückfragen: <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a></p>
+    <% } else if (creator.status === 'paused') { %>
+      <div class="note note--warn">
+        <p><strong>Dein Code ist derzeit pausiert.</strong> Bitte nimm bestehende Beiträge mit dem Code offline und melde dich bei uns.</p>
+      </div>
+    <% } %>
+
+    <dl style="margin:18px 0 0">
+      <div class="small muted">Bewerbung eingegangen am <%= formatDateTimeDe(creator.created_at) %></div>
+    </dl>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

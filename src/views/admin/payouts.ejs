@@ -1,0 +1,71 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Auszahlungen</h1>
+    <p>Monatliche Abrechnung der Provisionen. Offene Beträge stammen aus dem letzten Snapshot.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Offene Provisionen je Creator</h2>
+      <span class="sub"><%= run ? run.as_of_label : 'kein Snapshot' %></span>
+    </div>
+    <% if (!open.length) { %>
+      <div class="card-body"><p class="empty">Keine offenen Provisionen.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Creator</th><th>Code</th><th class="num">Verdient</th><th class="num">Ausgezahlt</th><th class="num">Offen</th><th></th></tr></thead>
+        <tbody>
+          <% open.forEach(function (o) { %>
+          <tr>
+            <td><a href="/admin/creators/<%= o.id %>"><%= o.full_name %></a></td>
+            <td class="mono"><%= o.assigned_code %></td>
+            <td class="num"><%= money(o.commission_total) %></td>
+            <td class="num"><%= money(o.commission_paid) %></td>
+            <td class="num"><strong><%= money(o.commission_open) %></strong></td>
+            <td><a class="btn btn--ghost btn--sm" href="/admin/creators/<%= o.id %>">Buchen</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Gebuchte Auszahlungen</h2></div>
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Buchung.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Creator</th><th>Zeitraum</th><th class="num">Betrag</th><th>Status</th><th>Ausgezahlt am</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (p) { %>
+          <tr>
+            <td><a href="/admin/creators/<%= p.creator_id %>"><%= p.full_name %></a></td>
+            <td><%= p.period %></td>
+            <td class="num"><%= money(p.amount) %></td>
+            <td><span class="badge badge--<%= p.status === 'paid' ? 'good' : 'neutral' %>"><%= statusLabel(p.status) %></span></td>
+            <td><%= p.paid_at ? formatDateDe(p.paid_at) : '–' %></td>
+            <td>
+              <% if (p.status === 'open') { %>
+              <form method="post" action="/admin/payouts/<%= p.id %>/paid">
+                <button class="btn btn--ghost btn--sm" type="submit">Als ausgezahlt markieren</button>
+              </form>
+              <% } %>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

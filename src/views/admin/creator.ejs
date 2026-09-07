@@ -1,0 +1,199 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1><%= c.full_name %></h1>
+    <p>
+      <a href="mailto:<%= c.email %>"><%= c.email %></a> ·
+      Bewerbung vom <%= formatDateTimeDe(c.created_at) %>
+      <% if (c.source) { %> · Quelle: <code class="mono"><%= c.source %></code><% } %>
+    </p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+  <% if (error) { %><div class="note note--danger"><p><%= error %></p></div><% } %>
+
+  <% if (loginLink) { %>
+  <div class="card">
+    <h2>Login-Link für <%= c.full_name.split(' ')[0] %></h2>
+    <p class="small muted">
+      <% if (hasSmtp) { %>
+        Zusätzlich zur E-Mail – falls du den Link direkt schicken willst.
+      <% } else { %>
+        Es ist kein SMTP-Zugang hinterlegt, also verschickt das Portal nichts. Schick diesen Link dem Creator selbst.
+      <% } %>
+      Er ist 30 Minuten gültig und lässt sich einmal verwenden.
+    </p>
+    <div class="code-display">
+      <div style="min-width:0;flex:1">
+        <div class="mono" style="word-break:break-all;font-size:13px"><%= loginLink %></div>
+      </div>
+      <button class="btn btn--sm" type="button" data-copy="<%= loginLink %>">Link kopieren</button>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="card">
+    <div class="actions" style="margin-bottom:16px">
+      <span class="badge badge--<%= c.status === 'approved' ? 'good' : (c.status === 'pending' ? 'warn' : (c.status === 'paused' ? 'neutral' : 'danger')) %>"><%= statusLabel(c.status) %></span>
+      <a class="btn btn--ghost btn--sm" href="https://instagram.com/<%= c.instagram %>" target="_blank" rel="noopener">@<%= c.instagram %> auf Instagram</a>
+      <% if (c.tiktok) { %><a class="btn btn--ghost btn--sm" href="https://tiktok.com/@<%= c.tiktok %>" target="_blank" rel="noopener">TikTok</a><% } %>
+      <% if (c.youtube) { %><a class="btn btn--ghost btn--sm" href="https://youtube.com/@<%= c.youtube %>" target="_blank" rel="noopener">YouTube</a><% } %>
+      <% if (c.status === 'approved' || c.status === 'paused') { %>
+      <form method="post" action="/admin/creators/<%= c.id %>/login-link" style="margin-left:auto">
+        <button class="btn btn--ghost btn--sm" type="submit">Login-Link erzeugen</button>
+      </form>
+      <% } %>
+    </div>
+
+    <div class="small muted">
+      Zugestimmte Regeln: Version <%= c.terms_version %> am <%= formatDateTimeDe(c.terms_accepted_at) %>
+      <% if (c.terms_accepted_ip) { %> · IP <%= c.terms_accepted_ip %><% } %>
+    </div>
+  </div>
+
+  <% if (c.status === 'pending') { %>
+  <div class="card">
+    <h2>Freigeben</h2>
+    <form method="post" action="/admin/creators/<%= c.id %>/approve">
+      <div class="grid-2">
+        <div class="field">
+          <label for="code">Code</label>
+          <p class="hint">Wunsch war <strong><%= c.requested_code %></strong>. Änderbar, falls schon vergeben.</p>
+          <input type="text" id="code" name="code" value="<%= c.requested_code %>" style="text-transform:uppercase" maxlength="20" required>
+        </div>
+        <div class="field">
+          <label for="commission_rate">Provision in %</label>
+          <p class="hint">Standard: <%= program.defaultCommissionRate %> %</p>
+          <input type="number" id="commission_rate" name="commission_rate" step="0.5" min="0" max="90"
+                 value="<%= program.defaultCommissionRate %>" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="customer_discount">Kundenrabatt in %</label>
+        <input type="number" id="customer_discount" name="customer_discount" step="1" min="0" max="90"
+               value="<%= program.defaultCustomerDiscount %>" required>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Freigeben und E-Mail schicken</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Ablehnen</h2>
+    <form method="post" action="/admin/creators/<%= c.id %>/reject">
+      <div class="field">
+        <label for="reason">Grund <span class="optional">– wird dem Creator mitgeteilt</span></label>
+        <textarea id="reason" name="reason" placeholder="z. B. Kanal passt inhaltlich nicht zum Sortiment"></textarea>
+      </div>
+      <button class="btn btn--danger" type="submit">Ablehnen</button>
+    </form>
+  </div>
+  <% } else if (c.status === 'approved' || c.status === 'paused') { %>
+  <div class="card">
+    <h2>Konditionen</h2>
+    <form method="post" action="/admin/creators/<%= c.id %>/update">
+      <div class="grid-2">
+        <div class="field">
+          <label for="code">Code</label>
+          <input type="text" id="code" name="code" value="<%= c.assigned_code %>" style="text-transform:uppercase" maxlength="20" required>
+        </div>
+        <div class="field">
+          <label for="commission_rate">Provision in %</label>
+          <input type="number" id="commission_rate" name="commission_rate" step="0.5" min="0" max="90"
+                 value="<%= c.commission_rate %>" required>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="customer_discount">Kundenrabatt in %</label>
+          <input type="number" id="customer_discount" name="customer_discount" step="1" min="0" max="90"
+                 value="<%= c.customer_discount %>" required>
+        </div>
+        <div class="field">
+          <label for="status">Status</label>
+          <select id="status" name="status">
+            <option value="approved" <%= c.status === 'approved' ? 'selected' : '' %>>Aktiv</option>
+            <option value="paused" <%= c.status === 'paused' ? 'selected' : '' %>>Pausiert</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="note_internal">Interne Notiz <span class="optional">– sieht der Creator nicht</span></label>
+        <textarea id="note_internal" name="note_internal"><%= c.note_internal || '' %></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Speichern</button>
+        <span class="small muted">Eine Codeänderung wirkt erst ab dem nächsten Import – alte Bestellungen bleiben dem alten Code zugeordnet.</span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Umsatz laut Snapshot</h2>
+      <span class="sub"><%= run ? run.as_of_label : 'kein Snapshot' %></span>
+    </div>
+    <div class="card-body">
+      <% if (!totals) { %>
+        <p class="empty">Für diesen Creator liegen im letzten Snapshot keine Werte vor.</p>
+      <% } else { %>
+      <div class="stats" style="margin:0">
+        <div class="stat"><div class="stat-label">Umsatz gesamt</div><div class="stat-value"><%= money(totals.revenue_total) %></div></div>
+        <div class="stat"><div class="stat-label">Provision gesamt</div><div class="stat-value"><%= money(totals.commission_total) %></div></div>
+        <div class="stat"><div class="stat-label">Offen</div><div class="stat-value"><%= money(totals.commission_open) %></div></div>
+        <div class="stat"><div class="stat-label">Bestellungen</div><div class="stat-value"><%= num(totals.orders_total) %></div></div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Auszahlung erfassen</h2>
+    <form method="post" action="/admin/payouts">
+      <input type="hidden" name="creator_id" value="<%= c.id %>">
+      <div class="grid-2">
+        <div class="field">
+          <label for="period">Zeitraum</label>
+          <input type="text" id="period" name="period" placeholder="2026-08" value="<%= defaultPeriod %>" required>
+        </div>
+        <div class="field">
+          <label for="amount">Betrag in <%= program.currency %></label>
+          <input type="number" id="amount" name="amount" step="0.01" min="0" required
+                 value="<%= totals ? totals.commission_open.toFixed(2) : '' %>">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn--ghost" type="submit" name="status" value="open">Als offen anlegen</button>
+        <button class="btn" type="submit" name="status" value="paid">Als ausgezahlt buchen</button>
+      </div>
+    </form>
+  </div>
+  <% } else { %>
+  <div class="card">
+    <div class="note note--danger">
+      <p><strong>Abgelehnt</strong><% if (c.decision_reason) { %> – <%= c.decision_reason %><% } %></p>
+    </div>
+    <form method="post" action="/admin/creators/<%= c.id %>/reopen">
+      <button class="btn btn--ghost" type="submit">Wieder auf „offen“ setzen</button>
+    </form>
+  </div>
+  <% } %>
+
+  <p><a href="/admin/creators">← Zurück zur Liste</a></p>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('../partials/foot') %>

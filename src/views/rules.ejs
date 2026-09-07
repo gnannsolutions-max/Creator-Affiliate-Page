@@ -1,0 +1,58 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Werberegeln</h1>
+    <p>Kurz, konkret und verbindlich. Verstöße kosten uns beide Geld – wir haften nach § 8 Abs. 2 UWG für die Werbung unserer Partner mit.</p>
+  </div>
+
+  <div class="card">
+    <h2>Kennzeichnung</h2>
+    <ul class="rules">
+      <li class="yes"><span class="mark">✓</span><span><strong>„Werbung“ oder „Anzeige“</strong> am Anfang der Caption oder als Sticker im Video – gut lesbar, nicht im Hashtag-Block versteckt.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Bei Reels und Stories zusätzlich <strong>eingeblendet</strong>, nicht nur in der Beschreibung.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Kein „#ad“ am Ende von 25 Hashtags, kein „sponsored by“ auf Englisch bei deutschsprachigem Publikum.</span></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Was du über die Produkte sagen darfst</h2>
+    <ul class="rules">
+      <li class="yes"><span class="mark">✓</span><span>Aussagen zu <strong>Aussehen und Pflege</strong>: „glättet das Erscheinungsbild feiner Linien“, „die Haut fühlt sich praller an“.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Deine <strong>persönliche Erfahrung</strong> als Erfahrung – „bei mir“, „ich finde“.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Inhaltsstoffe benennen und erklären, wofür sie kosmetisch eingesetzt werden.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine <strong>Heil-, Therapie- oder Krankheitsaussagen</strong>: nichts zu Akne, Rosazea, Neurodermitis, Wundheilung, Entzündungen.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine <strong>medizinische Wirkung</strong> behaupten: nicht „repariert“, „regeneriert medizinisch“, „wirkt wie eine Behandlung beim Hautarzt“.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine <strong>Vorher-Nachher-Bilder</strong>, die eine Krankheit oder deren Besserung zeigen.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine Aussagen zu <strong>Gewichtsabnahme als medizinischem Effekt</strong>.</span></li>
+    </ul>
+    <p class="small muted" style="margin-top:14px">
+      Faustregel: Sobald ein Satz beschreibt, dass etwas eine Krankheit erkennt, lindert oder beseitigt, ist es keine Kosmetikwerbung mehr, sondern fällt unter das Heilmittelwerberecht. Dann wird es für uns beide teuer.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Was gar nicht geht</h2>
+    <ul class="rules">
+      <li class="no"><span class="mark">✗</span><span><strong>Keine verschreibungspflichtigen oder injizierbaren Präparate</strong> im selben Kanal bewerben – auch nicht in einem anderen Post, auch nicht über einen zweiten Link in der Bio. Wir beenden die Zusammenarbeit in dem Fall sofort.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine Verlinkung auf fremde Shops mit vergleichbaren Produkten, solange dein Code aktiv ist.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine erfundenen Rabatte, keine falschen Verknappungen („nur heute“, wenn es nicht stimmt).</span></li>
+      <li class="no"><span class="mark">✗</span><span>Keine Gewinnspiele mit dem Code ohne vorherige Absprache.</span></li>
+      <li class="no"><span class="mark">✗</span><span>Kein Posten von Codes in Gutschein- und Couponportalen.</span></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Praktisches</h2>
+    <ul class="rules">
+      <li class="yes"><span class="mark">✓</span><span>Dein Code ist erst gültig, wenn er hier im Dashboard steht. Vorher zählt keine Bestellung.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Provision entsteht nur auf <strong>bestätigte</strong> Bestellungen. Retouren fallen wieder heraus.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Abgerechnet wird monatlich. Du siehst offene und ausgezahlte Beträge im Dashboard.</span></li>
+      <li class="yes"><span class="mark">✓</span><span>Deine Provisionen sind <strong>Einnahmen</strong> und von dir zu versteuern. Wir stellen dir auf Wunsch eine Aufstellung aus.</span></li>
+    </ul>
+  </div>
+
+  <p class="small muted">Fragen? <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a></p>
+</main>
+
+<%- include('partials/foot') %>

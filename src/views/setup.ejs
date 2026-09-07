@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Einrichtung noch nicht abgeschlossen</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">Creator-Portal <span class="muted">Einrichtung</span></span>
+  </div>
+</header>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Fast fertig</h1>
+    <p>Die Anwendung ist installiert und läuft. Es fehlen nur noch <%= errors.length %> Einstellung<%= errors.length === 1 ? '' : 'en' %>.</p>
+  </div>
+
+  <div class="note note--info">
+    <p>Diese Seite sieht nur, wer die Adresse kennt – solange die Einrichtung nicht abgeschlossen ist, ist das Portal nicht benutzbar. Es gehen keine Daten verloren.</p>
+  </div>
+
+  <div class="card">
+    <h2>Das fehlt noch</h2>
+    <ul class="rules">
+      <% errors.forEach(function (e) { %>
+      <li class="no">
+        <span class="mark">✗</span>
+        <span>
+          <strong class="mono"><%= e.name %></strong><br>
+          <span class="small muted"><%= e.hint || 'In den Umgebungsvariablen eintragen.' %></span>
+        </span>
+      </li>
+      <% }); %>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>So trägst du es ein</h2>
+    <ol class="steps">
+      <li class="current">
+        <strong>Datenbank anlegen</strong>
+        <p>In deinem Netlify-Projekt links auf <em>Project configuration</em> → <em>Database</em> → <em>Add database</em>. Netlify legt die Datenbank an und setzt die Verbindung selbst. Diese eine Variable trägst du also <strong>nicht</strong> von Hand ein.</p>
+      </li>
+      <li>
+        <strong>Variablen setzen</strong>
+        <p>Links auf <em>Environment variables</em> → <em>Add a variable</em>. Für jeden Eintrag oben Name und Wert eingeben, Scope auf <em>All</em> lassen.</p>
+      </li>
+      <li>
+        <strong>Neu veröffentlichen</strong>
+        <p>Links auf <em>Deploys</em> → oben rechts <em>Trigger deploy</em> → <em>Deploy site</em>. Nach ein bis zwei Minuten lädst du diese Seite neu.</p>
+      </li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Die vollständige Liste</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Wert</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">SESSION_SECRET</td><td class="small">Zufälliger Text, mindestens 32 Zeichen</td></tr>
+          <tr><td class="mono">ADMIN_PASSWORD</td><td class="small">Dein Passwort für den Adminbereich, mindestens 12 Zeichen</td></tr>
+          <tr><td class="mono">NODE_ENV</td><td class="small"><code>production</code></td></tr>
+          <tr><td class="mono">PROGRAM_BRAND</td><td class="small">Dein Markenname, z. B. <code>Vitalkontor</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Alles Weitere ist optional und in der Datei <code class="mono">.env.example</code> beschrieben.
+    </p>
+  </div>
+</main>
+
+<footer class="footer">
+  <p class="small">Sobald alles gesetzt ist, verschwindet diese Seite von selbst.</p>
+</footer>
+</body>
+</html>

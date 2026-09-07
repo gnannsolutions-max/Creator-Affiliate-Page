@@ -1,0 +1,39 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Creator-Login</h1>
+    <p>Kein Passwort nötig. Wir schicken dir einen Login-Link an deine hinterlegte E-Mail-Adresse.</p>
+  </div>
+
+  <% if (sent) { %>
+    <div class="card">
+      <div class="note note--good">
+        <% if (hasSmtp) { %>
+          <p><strong>Falls die Adresse bei uns hinterlegt ist, ist der Link unterwegs.</strong></p>
+          <p>Er ist 30 Minuten gültig und lässt sich einmal verwenden. Schau auch im Spam-Ordner nach.</p>
+        <% } else { %>
+          <p><strong>Deine Anfrage ist angekommen.</strong></p>
+          <p>Wir schicken dir den Login-Link persönlich zu – in der Regel am selben Tag. Wenn es eilt, schreib uns an <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a>.</p>
+        <% } %>
+      </div>
+      <a class="btn btn--ghost" href="/login">Erneut anfordern</a>
+    </div>
+  <% } else { %>
+    <div class="card">
+      <% if (error) { %><div class="note note--danger"><p><%= error %></p></div><% } %>
+      <form method="post" action="/login">
+        <div class="field">
+          <label for="email">E-Mail-Adresse</label>
+          <input type="email" id="email" name="email" autocomplete="email" required autofocus>
+        </div>
+        <button class="btn btn--wide" type="submit">Login-Link schicken</button>
+      </form>
+      <p class="small muted" style="margin-top:14px">
+        Noch keinen Code? <a href="/">Hier bewerben.</a>
+      </p>
+    </div>
+  <% } %>
+</main>
+
+<%- include('partials/foot') %>

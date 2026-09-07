@@ -1,0 +1,67 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Ausgehende Nachrichten</h1>
+    <p>Jede Nachricht, die das Portal erzeugt hat – die letzten 50.</p>
+  </div>
+
+  <% if (!hasSmtp) { %>
+    <div class="note note--warn">
+      <p><strong>Kein SMTP-Zugang hinterlegt – es wird nichts verschickt.</strong></p>
+      <p>Das ist kein Fehler, sondern der Betrieb ohne Maildienst: Hier steht jede Nachricht mitsamt Login-Link. Kopiere den Link und schick ihn dem Creator über den Kanal, über den ihr ohnehin schreibt. Sobald du <code class="mono">SMTP_HOST</code> setzt, verschickt das Portal die Nachrichten selbst.</p>
+    </div>
+  <% } %>
+
+  <% if (!rows.length) { %>
+    <div class="card"><p class="empty">Noch keine Nachricht erzeugt.</p></div>
+  <% } %>
+
+  <% rows.forEach(function (m) { %>
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2><%= m.subject %></h2>
+      <span class="sub">
+        an <%= m.recipient %> · <%= formatDateTimeDe(m.created_at) %> ·
+        <span class="badge badge--<%= m.status === 'sent' ? 'good' : (m.status === 'failed' ? 'danger' : 'neutral') %>">
+          <%= m.status === 'sent' ? 'Verschickt' : (m.status === 'failed' ? 'Fehlgeschlagen' : 'Nicht verschickt') %>
+        </span>
+      </span>
+    </div>
+    <div class="card-body">
+      <% if (m.error) { %>
+        <div class="note note--danger"><p><%= m.error %></p></div>
+      <% } %>
+
+      <% if (m.link) { %>
+      <div class="code-display" style="margin-bottom:14px">
+        <div style="min-width:0;flex:1">
+          <div class="stat-label">Login-Link<% if (m.kind === 'login' || m.kind === 'approval') { %> · 30 Minuten gültig, einmal verwendbar<% } %></div>
+          <div class="mono" style="word-break:break-all;font-size:13px"><%= m.link %></div>
+        </div>
+        <button class="btn btn--sm" type="button" data-copy="<%= m.link %>">Link kopieren</button>
+      </div>
+      <% } %>
+
+      <details>
+        <summary class="small muted" style="cursor:pointer">Volltext anzeigen</summary>
+        <pre class="mono small" style="white-space:pre-wrap;margin:10px 0 0"><%= m.body %></pre>
+      </details>
+    </div>
+  </div>
+  <% }); %>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('../partials/foot') %>

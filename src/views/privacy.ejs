@@ -1,0 +1,31 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Datenschutzhinweise</h1>
+    <p>Creator-Programm von <%= program.brand %></p>
+  </div>
+
+  <div class="note note--warn">
+    <p><strong>Platzhalter.</strong> Vor dem Livegang durch eine vollständige, auf euren Verantwortlichen und eure Auftragsverarbeiter zugeschnittene Datenschutzerklärung ersetzen.</p>
+  </div>
+
+  <div class="card">
+    <h2>Welche Daten wir verarbeiten</h2>
+    <p class="small">Name, E-Mail-Adresse, Wunsch-Code, Instagram-Name sowie freiwillig TikTok- und YouTube-Namen. Nach Freigabe zusätzlich: der vergebene Code, Provisionssatz sowie die über den Code erzielten Bestellungen (Bestellnummer, Datum, Betrag, Status).</p>
+
+    <h2 style="margin-top:20px">Wozu und auf welcher Grundlage</h2>
+    <p class="small">Die Verarbeitung erfolgt zur Durchführung des Creator-Programms (Art. 6 Abs. 1 lit. b DSGVO) sowie zur Erfüllung handels- und steuerrechtlicher Aufbewahrungspflichten (Art. 6 Abs. 1 lit. c DSGVO). Die dokumentierte Zustimmung zu den Werberegeln dient dem Nachweis der Einhaltung wettbewerbsrechtlicher Pflichten (Art. 6 Abs. 1 lit. f DSGVO).</p>
+
+    <h2 style="margin-top:20px">Wie lange</h2>
+    <p class="small">Bewerbungsdaten abgelehnter Bewerbungen werden nach sechs Monaten gelöscht. Daten aktiver Creator werden für die Dauer der Zusammenarbeit gespeichert, abrechnungsrelevante Daten darüber hinaus für die gesetzlichen Aufbewahrungsfristen.</p>
+
+    <h2 style="margin-top:20px">Deine Rechte</h2>
+    <p class="small">Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und Widerspruch. Außerdem besteht ein Beschwerderecht bei einer Aufsichtsbehörde. Kontakt: <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a>.</p>
+
+    <h2 style="margin-top:20px">Keine Weitergabe an Dritte</h2>
+    <p class="small">Eine Weitergabe erfolgt nur, soweit sie zur Abwicklung erforderlich ist (z. B. Zahlungsabwicklung, Steuerberatung) oder gesetzlich vorgeschrieben ist.</p>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

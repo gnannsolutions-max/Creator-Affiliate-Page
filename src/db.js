@@ -5,35 +5,91 @@ const path = require('path');
 const { Pool } = require('pg');
 const config = require('./config');
 
+/**
+ * Woher die Verbindungszeichenfolge kommt.
+ *
+ * 1. NETLIFY_DATABASE_URL oder DATABASE_URL, falls von Hand gesetzt.
+ * 2. Sonst über das Paket `@netlify/database`. Die von Netlify verwaltete
+ *    Datenbank stellt keine Umgebungsvariable bereit, sondern liefert die
+ *    Zugangsdaten zur Laufzeit – und zwar automatisch passend zum jeweiligen
+ *    Zweig (Produktion beim Produktions-Deploy, eine Kopie bei Vorschauen).
+ *
+ * Der Import passiert absichtlich erst beim ersten Zugriff und asynchron:
+ * So startet die Anwendung auch dann, wenn das Paket fehlt, und meldet den
+ * Fehler dort, wo er hingehört – bei der Datenbankabfrage.
+ */
+async function resolveConnectionString() {
+  if (config.databaseUrl) return config.databaseUrl;
+
+  let mod;
+  try {
+    mod = await import('@netlify/database');
+  } catch (err) {
+    throw new Error(
+      `Keine Datenbankverbindung: weder NETLIFY_DATABASE_URL/DATABASE_URL gesetzt noch @netlify/database verfügbar (${err.message}).`
+    );
+  }
+  const get = mod.getConnectionString || (mod.default && mod.default.getConnectionString);
+  if (typeof get !== 'function') {
+    throw new Error('@netlify/database liefert kein getConnectionString().');
+  }
+  const value = await get();
+  if (!value) throw new Error('@netlify/database lieferte eine leere Verbindungszeichenfolge.');
+  return value;
+}
+
 // In einer Serverless-Function lebt jede Instanz nur kurz und bearbeitet genau
 // eine Anfrage – ein großer Pool bringt nichts und verbraucht nur Verbindungen
 // auf der Datenbankseite. Deshalb: eine Verbindung im Serverless-Betrieb,
 // ein kleiner Pool beim klassischen Serverstart.
-const pool = new Pool({
-  connectionString: config.databaseUrl,
-  max: config.isServerless ? 1 : 5,
-  idleTimeoutMillis: config.isServerless ? 5_000 : 30_000,
-  connectionTimeoutMillis: 10_000,
-  ssl: config.databaseSsl ? { rejectUnauthorized: false } : undefined,
-});
+let poolPromise = null;
 
-pool.on('error', (err) => console.error('Postgres-Pool-Fehler:', err.message));
+function getPool() {
+  if (!poolPromise) {
+    poolPromise = resolveConnectionString()
+      .then((connectionString) => {
+        const ssl =
+          process.env.DATABASE_SSL === 'true' ||
+          (process.env.DATABASE_SSL !== 'false' &&
+            /neon\.tech|netlify|sslmode=require/.test(connectionString));
+        const p = new Pool({
+          connectionString,
+          max: config.isServerless ? 1 : 5,
+          idleTimeoutMillis: config.isServerless ? 5_000 : 30_000,
+          connectionTimeoutMillis: 10_000,
+          ssl: ssl ? { rejectUnauthorized: false } : undefined,
+        });
+        p.on('error', (err) => console.error('Postgres-Pool-Fehler:', err.message));
+        return p;
+      })
+      .catch((err) => {
+        poolPromise = null; // beim nächsten Versuch neu auflösen
+        throw err;
+      });
+  }
+  return poolPromise;
+}
+
+async function query(text, params) {
+  const pool = await getPool();
+  return pool.query(text, params);
+}
 
 /** Alle Zeilen. */
 async function many(text, params = []) {
-  const result = await pool.query(text, params);
+  const result = await query(text, params);
   return result.rows;
 }
 
 /** Erste Zeile oder null. */
 async function one(text, params = []) {
-  const result = await pool.query(text, params);
+  const result = await query(text, params);
   return result.rows[0] ?? null;
 }
 
 /** Für INSERT/UPDATE/DELETE; liefert rowCount und ggf. RETURNING-Zeilen. */
 async function run(text, params = []) {
-  const result = await pool.query(text, params);
+  const result = await query(text, params);
   return { rowCount: result.rowCount, rows: result.rows };
 }
 
@@ -42,6 +98,7 @@ async function run(text, params = []) {
  * Hilfsmethoden; bei einem Fehler wird zurückgerollt.
  */
 async function tx(fn) {
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -79,6 +136,7 @@ async function tx(fn) {
  */
 async function migrate() {
   const ddl = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+  const pool = await getPool();
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock(873214001)');
@@ -131,7 +189,15 @@ async function log(actor, action, subject, detail) {
 }
 
 async function close() {
-  await pool.end();
+  if (!poolPromise) return;
+  const pending = poolPromise;
+  poolPromise = null;
+  try {
+    const pool = await pending;
+    await pool.end();
+  } catch {
+    /* Verbindung kam nie zustande – nichts zu schließen */
+  }
 }
 
-module.exports = { pool, many, one, run, tx, migrate, ensureSchema, log, close };
+module.exports = { getPool, many, one, run, tx, migrate, ensureSchema, log, close };

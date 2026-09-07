@@ -24,13 +24,25 @@ function required(name, fallback, hint) {
   return value;
 }
 
-// Netlify DB legt die Verbindungszeichenfolge selbst an. Die gepoolte Variante
-// ist für Serverless die richtige; DATABASE_URL erlaubt jeden anderen Postgres.
-const databaseUrl = required(
-  'NETLIFY_DATABASE_URL',
-  process.env.DATABASE_URL || (isProd ? '' : 'postgres://postgres@127.0.0.1:5433/creator_affiliate'),
-  'Datenbank anlegen: Project configuration → Database → Add database. Netlify setzt die Variable danach selbst.'
-);
+// Verbindung zur Datenbank.
+//
+// Die von Netlify verwaltete Datenbank stellt KEINE Umgebungsvariable bereit –
+// die Zugangsdaten kommen zur Laufzeit über das Paket `@netlify/database`
+// (siehe src/db.js). Eine ausdrücklich gesetzte Variable hat trotzdem Vorrang,
+// damit die Anwendung auch gegen jeden anderen Postgres läuft.
+const databaseUrl =
+  process.env.NETLIFY_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  (isProd || isServerless ? '' : 'postgres://postgres@127.0.0.1:5433/creator_affiliate');
+
+// Nur wenn weder eine Variable gesetzt ist noch Netlify die Datenbank stellt,
+// fehlt wirklich etwas.
+if (!databaseUrl && !isServerless) {
+  setupErrors.push({
+    name: 'DATABASE_URL',
+    hint: 'Verbindungszeichenfolge zu einem Postgres eintragen. Auf Netlify wird sie nicht gebraucht – dort liefert die eingebaute Datenbank sie selbst.',
+  });
+}
 
 const config = {
   root,

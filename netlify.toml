@@ -12,7 +12,15 @@
   node_bundler = "esbuild"
   # Diese Pakete nicht mitbündeln – sie laden Dateien bzw. Module dynamisch
   # und vertragen sich schlecht mit dem Bundler.
-  external_node_modules = ["express", "ejs", "pg", "pg-native", "nodemailer", "multer"]
+  external_node_modules = [
+    "express",
+    "ejs",
+    "pg",
+    "pg-native",
+    "nodemailer",
+    "multer",
+    "@netlify/database",
+  ]
   # Die EJS-Templates gehören ins Function-Bundle, sonst findet Express keine Views.
   included_files = ["src/views/**"]
 

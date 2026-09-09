@@ -6,6 +6,10 @@
     <p>Tägliche Bestellliste als CSV hochladen. Die Zahlen werden im Creator-Dashboard erst beim nächsten Lauf um <%= refreshTime %> sichtbar.</p>
   </div>
 
+  <% if (flash) { %>
+    <div class="note note--good"><p><%= flash %></p></div>
+  <% } %>
+
   <% if (result) { %>
     <div class="note note--<%= result.ok ? 'good' : 'danger' %>">
       <% if (result.ok) { %>
@@ -65,7 +69,7 @@
     <% } else { %>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Datei</th><th>Zeitpunkt</th><th class="num">Zeilen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th class="num">Übersprungen</th></tr></thead>
+        <thead><tr><th>Datei</th><th>Zeitpunkt</th><th class="num">Zeilen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th class="num">Übersprungen</th><th></th></tr></thead>
         <tbody>
           <% imports.forEach(function (i) { %>
           <tr>
@@ -75,6 +79,7 @@
             <td class="num"><%= num(i.rows_inserted) %></td>
             <td class="num"><%= num(i.rows_updated) %></td>
             <td class="num"><%= num(i.rows_skipped) %></td>
+            <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/import/<%= i.id %>/zuruecknehmen">Zurücknehmen</a></td>
           </tr>
           <% }); %>
         </tbody>

@@ -7,6 +7,7 @@ const db = require('../db');
 const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
 const { normalizeCode, codeIssue, codeTaken } = require('../lib/validate');
+const rateLimit = require('../lib/ratelimit');
 const { importSalesCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays } = require('../lib/dates');
@@ -23,10 +24,33 @@ router.get('/login', (req, res) => {
   res.render('admin/login', { title: 'Admin', nav: null, error: null });
 });
 
-router.post('/login', (req, res) => {
+// Der Adminbereich hängt an einem einzigen Passwort. Ohne Bremse wäre er
+// systematisch durchprobierbar – deshalb die engste Grenze im ganzen Portal.
+const ADMIN_LOGIN_LIMIT = { limit: 5, windowSeconds: 15 * 60 };
+
+router.post('/login', async (req, res) => {
+  const ip = rateLimit.clientIp(req);
+  const bucket = `admin-login:${ip}`;
+
+  const gate = await rateLimit.hit(bucket, ADMIN_LOGIN_LIMIT);
+  if (!gate.allowed) {
+    res.set('Retry-After', String(gate.retryAfter));
+    await db.log('system', 'admin.login.blocked', ip, `Versuch ${gate.hits} im Fenster`).catch(() => {});
+    return res.status(429).render('admin/login', {
+      title: 'Admin',
+      nav: null,
+      error: `Zu viele Versuche. Nächster Versuch in etwa ${Math.ceil(gate.retryAfter / 60)} Minuten.`,
+    });
+  }
+
   if (!auth.checkAdminPassword(req.body.password)) {
+    await db.log('system', 'admin.login.failed', ip, `Versuch ${gate.hits} von ${ADMIN_LOGIN_LIMIT.limit}`).catch(() => {});
     return res.status(401).render('admin/login', { title: 'Admin', nav: null, error: 'Falsches Passwort.' });
   }
+
+  // Nach erfolgreichem Login den Zähler leeren, damit ein vertipptes Passwort
+  // die eigene Sitzung nicht noch eine Viertelstunde lang ausbremst.
+  await rateLimit.clear(bucket);
   auth.startAdminSession(res);
   res.redirect('/admin');
 });

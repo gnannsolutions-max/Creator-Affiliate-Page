@@ -47,8 +47,8 @@
               <% if (c.youtube) { %><br><span class="muted">YT:</span> @<%= c.youtube %><% } %>
             </td>
             <td class="mono">
-              <%= c.assigned_code || c.requested_code %>
-              <% if (!c.assigned_code) { %><br><span class="small muted">Wunsch</span><% } %>
+              <%= c.requested_code %>
+              <% if (c.status === 'pending') { %><br><span class="small muted">Wunsch</span><% } %>
             </td>
             <td>
               <span class="badge badge--<%= c.status === 'approved' ? 'good' : (c.status === 'pending' ? 'warn' : (c.status === 'paused' ? 'neutral' : 'danger')) %>"><%= statusLabel(c.status) %></span>

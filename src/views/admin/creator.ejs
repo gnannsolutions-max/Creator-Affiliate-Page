@@ -55,27 +55,46 @@
   <% if (c.status === 'pending') { %>
   <div class="card">
     <h2>Freigeben</h2>
+    <p class="small muted">Hake die Marken an, für die dieser Creator werben soll. Je Marke ein eigener Code und ein eigener Link.</p>
     <form method="post" action="/admin/creators/<%= c.id %>/approve">
-      <div class="grid-2">
-        <div class="field">
-          <label for="code">Code</label>
-          <p class="hint">Wunsch war <strong><%= c.requested_code %></strong>. Änderbar, falls schon vergeben.</p>
-          <input type="text" id="code" name="code" value="<%= c.requested_code %>" style="text-transform:uppercase" maxlength="20" required>
+      <% if (!brandList.filter(function (b) { return b.active; }).length) { %>
+        <div class="note note--warn">
+          <p><strong>Keine aktive Marke.</strong> Lege zuerst unter <a href="/admin/brands">Marken</a> eine an – ohne Marke gibt es keinen Link.</p>
         </div>
-        <div class="field">
-          <label for="commission_rate">Provision in %</label>
-          <p class="hint">Standard: <%= program.defaultCommissionRate %> %</p>
-          <input type="number" id="commission_rate" name="commission_rate" step="0.5" min="0" max="90"
-                 value="<%= program.defaultCommissionRate %>" required>
+      <% } %>
+      <% brandList.forEach(function (b) {
+           var cur = codeByBrand[String(b.id)];
+           if (!b.active && !cur) return; %>
+        <div class="card" style="background:var(--surface-2);margin-bottom:12px">
+          <div class="checkline">
+            <input type="checkbox" id="on_<%= b.id %>" name="brand_<%= b.id %>_on" value="1" <%= cur ? 'checked' : '' %>>
+            <label for="on_<%= b.id %>"><strong><%= b.name %></strong><% if (!b.active) { %> <span class="badge badge--neutral">inaktiv</span><% } %></label>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="code_<%= b.id %>">Code</label>
+              <input type="text" id="code_<%= b.id %>" name="brand_<%= b.id %>_code"
+                     value="<%= cur ? cur.code : c.requested_code %>"
+                     style="text-transform:uppercase" maxlength="20">
+            </div>
+            <div class="field">
+              <label for="rate_<%= b.id %>">Provision in %</label>
+              <input type="text" id="rate_<%= b.id %>" name="brand_<%= b.id %>_rate"
+                     value="<%= cur ? cur.commission_rate : b.default_commission_rate %>">
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="disc_<%= b.id %>">Kundenrabatt in %</label>
+            <input type="text" id="disc_<%= b.id %>" name="brand_<%= b.id %>_discount"
+                   value="<%= cur ? cur.customer_discount : b.default_customer_discount %>">
+          </div>
+          <% if (cur) { %>
+            <p class="small muted" style="margin:10px 0 0;word-break:break-all">Link: <span class="mono"><%= cur.link %></span></p>
+          <% } %>
         </div>
-      </div>
-      <div class="field">
-        <label for="customer_discount">Kundenrabatt in %</label>
-        <input type="number" id="customer_discount" name="customer_discount" step="1" min="0" max="90"
-               value="<%= program.defaultCustomerDiscount %>" required>
-      </div>
+      <% }); %>
       <div class="actions">
-        <button class="btn" type="submit">Freigeben und E-Mail schicken</button>
+        <button class="btn" type="submit">Freigeben und E-Mail mit den Links schicken</button>
       </div>
     </form>
   </div>
@@ -92,32 +111,61 @@
   </div>
   <% } else if (c.status === 'approved' || c.status === 'paused') { %>
   <div class="card">
-    <h2>Konditionen</h2>
-    <form method="post" action="/admin/creators/<%= c.id %>/update">
-      <div class="grid-2">
-        <div class="field">
-          <label for="code">Code</label>
-          <input type="text" id="code" name="code" value="<%= c.assigned_code %>" style="text-transform:uppercase" maxlength="20" required>
+    <h2>Marken und Links</h2>
+    <p class="small muted">Haken entfernen heißt: Der Creator verliert Code und Link für diese Marke. Bereits importierte Bestellungen bleiben davon unberührt.</p>
+    <form method="post" action="/admin/creators/<%= c.id %>/codes">
+      <% if (!brandList.filter(function (b) { return b.active; }).length) { %>
+        <div class="note note--warn">
+          <p><strong>Keine aktive Marke.</strong> Lege zuerst unter <a href="/admin/brands">Marken</a> eine an – ohne Marke gibt es keinen Link.</p>
         </div>
-        <div class="field">
-          <label for="commission_rate">Provision in %</label>
-          <input type="number" id="commission_rate" name="commission_rate" step="0.5" min="0" max="90"
-                 value="<%= c.commission_rate %>" required>
+      <% } %>
+      <% brandList.forEach(function (b) {
+           var cur = codeByBrand[String(b.id)];
+           if (!b.active && !cur) return; %>
+        <div class="card" style="background:var(--surface-2);margin-bottom:12px">
+          <div class="checkline">
+            <input type="checkbox" id="on_<%= b.id %>" name="brand_<%= b.id %>_on" value="1" <%= cur ? 'checked' : '' %>>
+            <label for="on_<%= b.id %>"><strong><%= b.name %></strong><% if (!b.active) { %> <span class="badge badge--neutral">inaktiv</span><% } %></label>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="code_<%= b.id %>">Code</label>
+              <input type="text" id="code_<%= b.id %>" name="brand_<%= b.id %>_code"
+                     value="<%= cur ? cur.code : c.requested_code %>"
+                     style="text-transform:uppercase" maxlength="20">
+            </div>
+            <div class="field">
+              <label for="rate_<%= b.id %>">Provision in %</label>
+              <input type="text" id="rate_<%= b.id %>" name="brand_<%= b.id %>_rate"
+                     value="<%= cur ? cur.commission_rate : b.default_commission_rate %>">
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="disc_<%= b.id %>">Kundenrabatt in %</label>
+            <input type="text" id="disc_<%= b.id %>" name="brand_<%= b.id %>_discount"
+                   value="<%= cur ? cur.customer_discount : b.default_customer_discount %>">
+          </div>
+          <% if (cur) { %>
+            <p class="small muted" style="margin:10px 0 0;word-break:break-all">Link: <span class="mono"><%= cur.link %></span></p>
+          <% } %>
         </div>
+      <% }); %>
+      <div class="actions">
+        <button class="btn" type="submit">Marken speichern</button>
+        <span class="small muted">Eine Codeänderung wirkt erst ab dem nächsten Import – alte Bestellungen bleiben dem alten Code zugeordnet.</span>
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label for="customer_discount">Kundenrabatt in %</label>
-          <input type="number" id="customer_discount" name="customer_discount" step="1" min="0" max="90"
-                 value="<%= c.customer_discount %>" required>
-        </div>
-        <div class="field">
-          <label for="status">Status</label>
-          <select id="status" name="status">
-            <option value="approved" <%= c.status === 'approved' ? 'selected' : '' %>>Aktiv</option>
-            <option value="paused" <%= c.status === 'paused' ? 'selected' : '' %>>Pausiert</option>
-          </select>
-        </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Status und Notiz</h2>
+    <form method="post" action="/admin/creators/<%= c.id %>/update">
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="approved" <%= c.status === 'approved' ? 'selected' : '' %>>Aktiv</option>
+          <option value="paused" <%= c.status === 'paused' ? 'selected' : '' %>>Pausiert</option>
+        </select>
       </div>
       <div class="field">
         <label for="note_internal">Interne Notiz <span class="optional">– sieht der Creator nicht</span></label>
@@ -125,7 +173,6 @@
       </div>
       <div class="actions">
         <button class="btn" type="submit">Speichern</button>
-        <span class="small muted">Eine Codeänderung wirkt erst ab dem nächsten Import – alte Bestellungen bleiben dem alten Code zugeordnet.</span>
       </div>
     </form>
   </div>

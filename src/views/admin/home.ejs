@@ -65,12 +65,12 @@
     <% } else { %>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Creator</th><th>Code</th><th class="num">Bestellungen</th><th class="num">Umsatz</th><th class="num">Provision</th></tr></thead>
+        <thead><tr><th>Creator</th><th>Marken</th><th class="num">Bestellungen</th><th class="num">Umsatz</th><th class="num">Provision</th></tr></thead>
         <tbody>
           <% top.forEach(function (t) { %>
           <tr>
             <td><a href="/admin/creators/<%= t.id %>"><%= t.full_name %></a></td>
-            <td class="mono"><%= t.assigned_code %></td>
+            <td class="small"><%= num(t.brand_count) %> Marke<%= Number(t.brand_count) === 1 ? '' : 'n' %></td>
             <td class="num"><%= num(t.orders_30d) %></td>
             <td class="num"><%= money(t.revenue_30d) %></td>
             <td class="num"><%= money(t.commission_30d) %></td>

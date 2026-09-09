@@ -1,0 +1,122 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Marken</h1>
+    <p>Jede Marke ist ein eigener Shop. Aus der Linkvorlage und dem persönlichen Code entsteht der Link, den der Creator postet.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <% if (Object.keys(errors).length) { %>
+    <div class="note note--danger"><p><strong>Da stimmt noch etwas nicht.</strong> Bitte sieh dir die markierten Felder an.</p></div>
+  <% } %>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Angelegte Marken</h2></div>
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Marke. Ohne mindestens eine Marke lässt sich kein Creator freigeben.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Marke</th><th>Linkvorlage</th><th class="num">Provision</th><th class="num">Rabatt</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (b) { %>
+          <tr>
+            <td><strong><%= b.name %></strong><br><span class="small muted mono"><%= b.slug %></span></td>
+            <td class="small mono" style="max-width:340px;word-break:break-all"><%= b.link_template %></td>
+            <td class="num"><%= percent(b.default_commission_rate) %></td>
+            <td class="num"><%= percent(b.default_customer_discount) %></td>
+            <td><span class="badge badge--<%= b.active ? "good" : "neutral" %>"><%= b.active ? "aktiv" : "inaktiv" %></span></td>
+            <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/brands/<%= b.id %>">Bearbeiten</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h2><%= editing ? 'Marke bearbeiten' : 'Neue Marke' %></h2>
+
+    <form method="post" action="/admin/brands">
+      <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="name">Name</label>
+          <p class="hint">So heißt die Marke im Dashboard, z. B. ESN.</p>
+          <input type="text" id="name" name="name" value="<%= values.name || '' %>" required
+                 <%= errors.name ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.name) { %><p class="field-error"><%= errors.name %></p><% } %>
+        </div>
+        <div class="field">
+          <label for="slug">Kürzel <span class="muted">(optional)</span></label>
+          <p class="hint">Leer lassen, dann aus dem Namen gebildet.</p>
+          <input type="text" id="slug" name="slug" value="<%= values.slug || '' %>" spellcheck="false"
+                 <%= errors.slug ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.slug) { %><p class="field-error"><%= errors.slug %></p><% } %>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="shop_url">Adresse des Shops</label>
+        <input type="text" id="shop_url" name="shop_url" value="<%= values.shop_url || '' %>"
+               placeholder="https://beispiel-shop.de" spellcheck="false" required
+               <%= errors.shop_url ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.shop_url) { %><p class="field-error"><%= errors.shop_url %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="link_template">Linkvorlage</label>
+        <p class="hint">
+          Muss <span class="mono"><%= placeholder %></span> genau einmal enthalten – dort wird der Code eingesetzt.
+          Beispiel: <span class="mono">https://beispiel-shop.de/?coupon=<%= placeholder %></span>
+        </p>
+        <input type="text" id="link_template" name="link_template" value="<%= values.link_template || '' %>"
+               spellcheck="false" required <%= errors.link_template ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.link_template) { %><p class="field-error"><%= errors.link_template %></p><% } %>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="default_commission_rate">Standard-Provision in %</label>
+          <input type="text" id="default_commission_rate" name="default_commission_rate"
+                 value="<%= values.default_commission_rate ?? 15 %>"
+                 <%= errors.default_commission_rate ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.default_commission_rate) { %><p class="field-error"><%= errors.default_commission_rate %></p><% } %>
+        </div>
+        <div class="field">
+          <label for="default_customer_discount">Standard-Kundenrabatt in %</label>
+          <input type="text" id="default_customer_discount" name="default_customer_discount"
+                 value="<%= values.default_customer_discount ?? 10 %>"
+                 <%= errors.default_customer_discount ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.default_customer_discount) { %><p class="field-error"><%= errors.default_customer_discount %></p><% } %>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="note">Interne Notiz <span class="muted">(optional)</span></label>
+        <input type="text" id="note" name="note" value="<%= values.note || '' %>">
+      </div>
+
+      <div class="checkline">
+        <input type="checkbox" id="active" name="active" value="true" <%= values.active === false ? '' : 'checked' %>>
+        <label for="active">Aktiv – nur aktive Marken lassen sich Creatorn zuweisen</label>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit"><%= editing ? 'Änderungen speichern' : 'Marke anlegen' %></button>
+        <% if (editing) { %><a class="btn btn--ghost" href="/admin/brands">Abbrechen</a><% } %>
+      </div>
+    </form>
+
+    <p class="small muted" style="margin-top:16px">
+      Eine Änderung der Linkvorlage wirkt sofort auf alle Links im Dashboard – aber nicht auf Links, die Creator
+      bereits gepostet haben. Die zeigen weiter auf die alte Adresse.
+    </p>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

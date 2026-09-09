@@ -23,7 +23,7 @@
           <% open.forEach(function (o) { %>
           <tr>
             <td><a href="/admin/creators/<%= o.id %>"><%= o.full_name %></a></td>
-            <td class="mono"><%= o.assigned_code %></td>
+            <td class="mono small"><%= o.codes || '–' %></td>
             <td class="num"><%= money(o.commission_total) %></td>
             <td class="num"><%= money(o.commission_paid) %></td>
             <td class="num"><strong><%= money(o.commission_open) %></strong></td>

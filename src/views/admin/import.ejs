@@ -13,7 +13,7 @@
   <% if (result) { %>
     <div class="note note--<%= result.ok ? 'good' : 'danger' %>">
       <% if (result.ok) { %>
-        <p><strong><%= num(result.inserted) %> neu, <%= num(result.updated) %> aktualisiert, <%= num(result.skipped) %> übersprungen</strong> (von <%= num(result.total) %> Zeilen).</p>
+        <p><strong><%= num(result.inserted) %> neu, <%= num(result.updated) %> aktualisiert, <%= num(result.skipped) %> übersprungen</strong> (von <%= num(result.total) %> Zeilen)<%= result.brandName ? ' für ' + result.brandName : '' %>.</p>
         <% if (result.unknownCodes && result.unknownCodes.length) { %>
           <p><strong>Unbekannte Codes:</strong>
             <%= result.unknownCodes.map(function (u) { return u.code + ' (' + u.count + ')'; }).join(', ') %>
@@ -30,6 +30,20 @@
 
   <div class="card">
     <form method="post" action="/admin/import" enctype="multipart/form-data">
+      <div class="field">
+        <label for="brand_id">Marke</label>
+        <p class="hint">Zu welchem Shop gehört diese Datei? Codes und Bestellnummern gelten immer nur innerhalb einer Marke.</p>
+        <% if (!brandList.length) { %>
+          <div class="note note--warn"><p>Noch keine aktive Marke. Lege zuerst unter <a href="/admin/brands">Marken</a> eine an.</p></div>
+        <% } else { %>
+        <select id="brand_id" name="brand_id" required>
+          <option value="">– bitte auswählen –</option>
+          <% brandList.forEach(function (b) { %>
+            <option value="<%= b.id %>" <%= String(selectedBrand) === String(b.id) ? 'selected' : '' %>><%= b.name %></option>
+          <% }); %>
+        </select>
+        <% } %>
+      </div>
       <div class="field">
         <label for="file">CSV-Datei</label>
         <p class="hint">Trennzeichen , ; oder Tab. Beträge mit Komma oder Punkt. Maximal 10 MB.</p>
@@ -69,11 +83,12 @@
     <% } else { %>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Datei</th><th>Zeitpunkt</th><th class="num">Zeilen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th class="num">Übersprungen</th><th></th></tr></thead>
+        <thead><tr><th>Datei</th><th>Marke</th><th>Zeitpunkt</th><th class="num">Zeilen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th class="num">Übersprungen</th><th></th></tr></thead>
         <tbody>
           <% imports.forEach(function (i) { %>
           <tr>
             <td class="mono small"><%= i.filename %></td>
+            <td class="small"><%= i.brand_name || '–' %></td>
             <td class="small"><%= formatDateTimeDe(i.created_at) %></td>
             <td class="num"><%= num(i.rows_total) %></td>
             <td class="num"><%= num(i.rows_inserted) %></td>

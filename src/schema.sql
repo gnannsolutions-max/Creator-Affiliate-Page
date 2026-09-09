@@ -198,3 +198,35 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
+
+-- --- Zahlungsempfänger -------------------------------------------------------
+--  Bewusst eine eigene Tabelle statt weiterer Spalten in `creators`:
+--  Die Anwendung liest an vielen Stellen `SELECT * FROM creators`, und das
+--  Ergebnis landet über die Sitzung in Views und Listen. Bankdaten sollen dort
+--  nicht beiläufig mitfahren – sie werden nur dort geladen, wo sie gebraucht
+--  werden. Ein Löschverlangen betrifft außerdem genau eine Zeile.
+CREATE TABLE IF NOT EXISTS payout_details (
+  creator_id     BIGINT      PRIMARY KEY REFERENCES creators(id) ON DELETE CASCADE,
+
+  method         TEXT        NOT NULL DEFAULT 'sepa' CHECK (method IN ('sepa','paypal')),
+  account_holder TEXT        NOT NULL,
+  iban           TEXT,
+  bic            TEXT,
+  paypal_email   TEXT,
+
+  -- Anschrift: steht auf der Gutschrift und ist dort Pflichtangabe.
+  street         TEXT        NOT NULL,
+  postal_code    TEXT        NOT NULL,
+  city           TEXT        NOT NULL,
+  country        TEXT        NOT NULL DEFAULT 'DE',
+
+  -- Steuerlicher Status. Entscheidet, ob auf der Gutschrift Umsatzsteuer
+  -- ausgewiesen wird. 'privat' heißt: keine unternehmerische Tätigkeit –
+  -- dann ist eine Gutschrift im Sinne des § 14 Abs. 2 UStG nicht möglich.
+  tax_status     TEXT        NOT NULL DEFAULT 'kleinunternehmer'
+                 CHECK (tax_status IN ('kleinunternehmer','regelbesteuert','privat')),
+  tax_id         TEXT,
+
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

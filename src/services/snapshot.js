@@ -148,6 +148,11 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
       [KEEP_RUNS]
     );
 
+    // Abgelaufene Zähler und verbrauchte Login-Token gehören nicht auf Dauer
+    // in die Datenbank. Der tägliche Lauf ist die passende Gelegenheit.
+    await t.run("DELETE FROM rate_limits WHERE window_start < now() - interval '24 hours'");
+    await t.run("DELETE FROM login_tokens WHERE expires_at < now() - interval '7 days'");
+
     return {
       runId: summary.id,
       creators: summary.creators_count,

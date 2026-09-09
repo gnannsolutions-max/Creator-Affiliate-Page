@@ -23,6 +23,7 @@
         <span><%= program.brand %><small>Affiliate Network</small></span>
       </a>
       <nav class="snc-nav">
+        <a href="#marken">Marken</a>
         <a href="#was-wir-sind">Wer wir sind</a>
         <a href="#vorteile">Vorteile</a>
         <a href="#ablauf">Ablauf</a>
@@ -60,14 +61,21 @@
     </div>
   </section>
 
-  <!-- ==================== KATEGORIEN ==================== -->
-  <section class="snc-cats" aria-label="Partnerkategorien">
-    <div class="snc-cats-in">
-      <span class="snc-cats-label">Marken aus den Bereichen</span>
-      <span class="snc-cat">Supplements</span>
-      <span class="snc-cat">Apparel</span>
-      <span class="snc-cat">Equipment</span>
-      <span class="snc-cat">Recovery &amp; Health</span>
+  <!-- ==================== PARTNERMARKEN ==================== -->
+  <section class="snc-brands" id="marken" aria-labelledby="marken-titel">
+    <div class="snc-wrap">
+      <p class="snc-brands-label" id="marken-titel">Marken, mit denen wir arbeiten</p>
+      <ul class="snc-brands-grid">
+        <% partners.forEach(function (b) { %>
+          <li class="snc-brand snc-brand--<%= b.slug %>">
+            <img src="<%= b.logo %>" alt="<%= b.name %>" loading="lazy" decoding="async">
+          </li>
+        <% }); %>
+      </ul>
+      <p class="snc-brands-note">
+        Welche davon zu dir passen, entscheiden wir gemeinsam bei der Freigabe –
+        du bekommst nicht alle auf einmal, sondern die, zu denen dein Content passt.
+      </p>
     </div>
   </section>
 

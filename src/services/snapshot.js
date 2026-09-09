@@ -7,8 +7,32 @@ const CHART_DAYS = 30;
 const ORDER_LIST_LIMIT = 100;
 const KEEP_RUNS = 60;
 
-// Nur diese Creator bekommen einen Snapshot.
-const ACTIVE = `c.status IN ('approved','paused') AND c.assigned_code_norm IS NOT NULL`;
+// Nur diese Creator bekommen einen Snapshot: freigegeben und mit mindestens
+// einem aktiven Code. Ein Creator ohne zugewiesene Marke hat nichts zu zeigen.
+const ACTIVE = `c.status IN ('approved','paused') AND EXISTS (
+  SELECT 1 FROM creator_codes cc WHERE cc.creator_id = c.id AND cc.status = 'active'
+)`;
+
+/**
+ * Jede Bestellung, die einem Creator zusteht – aufgelöst über Marke UND Code.
+ *
+ * Die Zuordnung läuft bewusst über beides: Bestellnummern und Rabattcodes sind
+ * nur innerhalb eines Shops eindeutig. Würden wir nur über den Code verbinden,
+ * bekäme bei zwei Marken mit gleichlautendem Code der falsche Creator das Geld.
+ *
+ * Die Provision hängt am Code, nicht am Creator: Für dieselbe Person können je
+ * Marke unterschiedliche Sätze gelten.
+ */
+const EARNINGS = `
+  SELECT cc.creator_id, cc.brand_id, s.id AS sale_id, s.order_ref, s.order_date, s.status,
+         s.net_amount,
+         CASE WHEN s.status = 'confirmed' THEN s.net_amount ELSE 0 END AS revenue,
+         CASE WHEN s.status = 'confirmed'
+              THEN s.net_amount * cc.commission_rate / 100 ELSE 0 END AS commission
+    FROM creator_codes cc
+    JOIN creators cr ON cr.id = cc.creator_id AND cr.status IN ('approved','paused')
+    JOIN sales s ON s.brand_id = cc.brand_id AND s.code_norm = cc.code_norm
+   WHERE cc.status = 'active'`;
 
 /**
  * Baut den Stand, den Creator im Dashboard sehen.
@@ -38,9 +62,10 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
     );
     const runId = run.id;
 
-    // --- Kennzahlen je Creator ------------------------------------------------
+    // --- Kennzahlen je Creator über alle Marken -------------------------------
     await t.run(
-      `INSERT INTO snapshot_totals (
+      `WITH earnings AS (${EARNINGS})
+       INSERT INTO snapshot_totals (
          run_id, creator_id, orders_total, revenue_total, commission_total,
          orders_30d, revenue_30d, commission_30d, orders_prev30d, revenue_prev30d,
          avg_order_value, first_sale_date, last_sale_date, commission_paid, commission_open)
@@ -48,36 +73,35 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
          $1, c.id,
          COALESCE(a.orders, 0),
          ROUND(COALESCE(a.revenue, 0)::numeric, 2)::float8,
-         ROUND((COALESCE(a.revenue, 0) * c.commission_rate / 100)::numeric, 2)::float8,
+         ROUND(COALESCE(a.commission, 0)::numeric, 2)::float8,
          COALESCE(w.orders, 0),
          ROUND(COALESCE(w.revenue, 0)::numeric, 2)::float8,
-         ROUND((COALESCE(w.revenue, 0) * c.commission_rate / 100)::numeric, 2)::float8,
+         ROUND(COALESCE(w.commission, 0)::numeric, 2)::float8,
          COALESCE(p.orders, 0),
          ROUND(COALESCE(p.revenue, 0)::numeric, 2)::float8,
          CASE WHEN COALESCE(a.orders, 0) > 0
               THEN ROUND((a.revenue / a.orders)::numeric, 2)::float8 ELSE 0 END,
          a.first_date, a.last_date,
          ROUND(COALESCE(pay.paid, 0)::numeric, 2)::float8,
-         ROUND((COALESCE(a.revenue, 0) * c.commission_rate / 100
-                - COALESCE(pay.paid, 0))::numeric, 2)::float8
+         ROUND((COALESCE(a.commission, 0) - COALESCE(pay.paid, 0))::numeric, 2)::float8
        FROM creators c
        LEFT JOIN LATERAL (
-         SELECT COUNT(*) AS orders, SUM(s.net_amount) AS revenue,
-                MIN(s.order_date) AS first_date, MAX(s.order_date) AS last_date
-           FROM sales s
-          WHERE s.code_norm = c.assigned_code_norm AND s.status = 'confirmed'
+         SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission,
+                MIN(e.order_date) AS first_date, MAX(e.order_date) AS last_date
+           FROM earnings e
+          WHERE e.creator_id = c.id AND e.status = 'confirmed'
        ) a ON TRUE
        LEFT JOIN LATERAL (
-         SELECT COUNT(*) AS orders, SUM(s.net_amount) AS revenue
-           FROM sales s
-          WHERE s.code_norm = c.assigned_code_norm AND s.status = 'confirmed'
-            AND s.order_date >= $2 AND s.order_date <= $3
+         SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission
+           FROM earnings e
+          WHERE e.creator_id = c.id AND e.status = 'confirmed'
+            AND e.order_date >= $2 AND e.order_date <= $3
        ) w ON TRUE
        LEFT JOIN LATERAL (
-         SELECT COUNT(*) AS orders, SUM(s.net_amount) AS revenue
-           FROM sales s
-          WHERE s.code_norm = c.assigned_code_norm AND s.status = 'confirmed'
-            AND s.order_date >= $4 AND s.order_date <= $5
+         SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue
+           FROM earnings e
+          WHERE e.creator_id = c.id AND e.status = 'confirmed'
+            AND e.order_date >= $4 AND e.order_date <= $5
        ) p ON TRUE
        LEFT JOIN LATERAL (
          SELECT SUM(po.amount) AS paid
@@ -88,45 +112,76 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
       [runId, win30From, today, win60From, win30PrevTo]
     );
 
-    // --- Tagesreihe für den Chart, inklusive Tagen ohne Bestellung ------------
+    // --- Dieselben Zahlen je Marke, für die Aufschlüsselung im Dashboard ------
     await t.run(
-      `INSERT INTO snapshot_days (run_id, creator_id, day, orders, revenue, commission)
+      `WITH earnings AS (${EARNINGS})
+       INSERT INTO snapshot_brand_totals (
+         run_id, creator_id, brand_id, orders_total, revenue_total, commission_total,
+         orders_30d, revenue_30d, commission_30d, last_sale_date)
+       SELECT
+         $1, cc.creator_id, cc.brand_id,
+         COALESCE(a.orders, 0),
+         ROUND(COALESCE(a.revenue, 0)::numeric, 2)::float8,
+         ROUND(COALESCE(a.commission, 0)::numeric, 2)::float8,
+         COALESCE(w.orders, 0),
+         ROUND(COALESCE(w.revenue, 0)::numeric, 2)::float8,
+         ROUND(COALESCE(w.commission, 0)::numeric, 2)::float8,
+         a.last_date
+       FROM creator_codes cc
+       JOIN creators c ON c.id = cc.creator_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission,
+                MAX(e.order_date) AS last_date
+           FROM earnings e
+          WHERE e.creator_id = cc.creator_id AND e.brand_id = cc.brand_id
+            AND e.status = 'confirmed'
+       ) a ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission
+           FROM earnings e
+          WHERE e.creator_id = cc.creator_id AND e.brand_id = cc.brand_id
+            AND e.status = 'confirmed'
+            AND e.order_date >= $2 AND e.order_date <= $3
+       ) w ON TRUE
+       WHERE cc.status = 'active' AND c.status IN ('approved','paused')`,
+      [runId, win30From, today]
+    );
+
+    // --- Tagesreihe für den Chart, über alle Marken zusammen ------------------
+    await t.run(
+      `WITH earnings AS (${EARNINGS})
+       INSERT INTO snapshot_days (run_id, creator_id, day, orders, revenue, commission)
        SELECT $1, c.id, d.day,
-              COALESCE(s.orders, 0),
-              ROUND(COALESCE(s.revenue, 0)::numeric, 2)::float8,
-              ROUND((COALESCE(s.revenue, 0) * c.commission_rate / 100)::numeric, 2)::float8
+              COALESCE(e.orders, 0),
+              ROUND(COALESCE(e.revenue, 0)::numeric, 2)::float8,
+              ROUND(COALESCE(e.commission, 0)::numeric, 2)::float8
          FROM creators c
          CROSS JOIN (
            SELECT to_char(gs, 'YYYY-MM-DD') AS day
              FROM generate_series($2::date, $3::date, interval '1 day') AS gs
          ) d
          LEFT JOIN LATERAL (
-           SELECT COUNT(*) AS orders, SUM(s.net_amount) AS revenue
-             FROM sales s
-            WHERE s.code_norm = c.assigned_code_norm
-              AND s.status = 'confirmed'
-              AND s.order_date = d.day
-         ) s ON TRUE
+           SELECT COUNT(*) AS orders, SUM(x.revenue) AS revenue, SUM(x.commission) AS commission
+             FROM earnings x
+            WHERE x.creator_id = c.id AND x.status = 'confirmed' AND x.order_date = d.day
+         ) e ON TRUE
         WHERE ${ACTIVE}`,
       [runId, chartFrom, today]
     );
 
-    // --- Bestellliste, je Creator die letzten 100 -----------------------------
+    // --- Bestellliste, je Creator die letzten 100 über alle Marken ------------
     await t.run(
-      `INSERT INTO snapshot_orders (run_id, creator_id, order_ref, order_date, revenue, commission, status)
-       SELECT $1, x.creator_id, x.order_ref, x.order_date,
+      `WITH earnings AS (${EARNINGS})
+       INSERT INTO snapshot_orders (run_id, creator_id, brand_id, order_ref, order_date, revenue, commission, status)
+       SELECT $1, x.creator_id, x.brand_id, x.order_ref, x.order_date,
               ROUND(x.net_amount::numeric, 2)::float8,
-              CASE WHEN x.status = 'confirmed'
-                   THEN ROUND((x.net_amount * x.commission_rate / 100)::numeric, 2)::float8
-                   ELSE 0 END,
+              ROUND(x.commission::numeric, 2)::float8,
               x.status
          FROM (
-           SELECT c.id AS creator_id, c.commission_rate,
-                  s.order_ref, s.order_date, s.net_amount, s.status,
-                  ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY s.order_date DESC, s.id DESC) AS rn
-             FROM creators c
-             JOIN sales s ON s.code_norm = c.assigned_code_norm
-            WHERE ${ACTIVE}
+           SELECT e.*,
+                  ROW_NUMBER() OVER (PARTITION BY e.creator_id
+                                     ORDER BY e.order_date DESC, e.sale_id DESC) AS rn
+             FROM earnings e
          ) x
         WHERE x.rn <= $2`,
       [runId, ORDER_LIST_LIMIT]
@@ -174,23 +229,34 @@ async function dashboardFor(creatorId) {
     'SELECT * FROM snapshot_totals WHERE run_id = $1 AND creator_id = $2',
     [run.id, creatorId]
   );
-  if (!totals) return { run, totals: null, days: [], orders: [] };
+  if (!totals) return { run, totals: null, days: [], orders: [], brands: [] };
 
-  const [days, orders] = await Promise.all([
+  const [days, orders, brands] = await Promise.all([
     db.many(
       `SELECT day, orders, revenue, commission
          FROM snapshot_days WHERE run_id = $1 AND creator_id = $2 ORDER BY day`,
       [run.id, creatorId]
     ),
     db.many(
-      `SELECT order_ref, order_date, revenue, commission, status
-         FROM snapshot_orders WHERE run_id = $1 AND creator_id = $2
-        ORDER BY order_date DESC, order_ref DESC`,
+      `SELECT o.order_ref, o.order_date, o.revenue, o.commission, o.status,
+              b.name AS brand_name
+         FROM snapshot_orders o
+         LEFT JOIN brands b ON b.id = o.brand_id
+        WHERE o.run_id = $1 AND o.creator_id = $2
+        ORDER BY o.order_date DESC, o.order_ref DESC`,
+      [run.id, creatorId]
+    ),
+    db.many(
+      `SELECT t.*, b.name AS brand_name, b.slug AS brand_slug
+         FROM snapshot_brand_totals t
+         JOIN brands b ON b.id = t.brand_id
+        WHERE t.run_id = $1 AND t.creator_id = $2
+        ORDER BY b.sort_order, b.name`,
       [run.id, creatorId]
     ),
   ]);
 
-  return { run, totals, days, orders };
+  return { run, totals, days, orders, brands };
 }
 
 /**

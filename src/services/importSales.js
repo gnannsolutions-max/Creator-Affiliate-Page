@@ -13,16 +13,19 @@ const BATCH_SIZE = 500;
  * Der Import verändert NICHT, was Creator im Dashboard sehen – das passiert
  * erst beim nächsten Snapshot.
  */
-async function importSalesCsv(text, { filename = 'upload.csv', actor = 'admin' } = {}) {
+async function importSalesCsv(text, { brandId, filename = 'upload.csv', actor = 'admin' } = {}) {
+  if (!brandId) throw new Error('Ohne Marke lässt sich eine Bestellliste nicht zuordnen.');
   const parsed = parseSalesCsv(text);
   if (!parsed.rows.length && parsed.problems.length) {
     return { ok: false, problems: parsed.problems, mapping: parsed.mapping };
   }
 
+  // Nur Codes DIESER Marke gelten. Ein Code aus einem anderen Shop darf hier
+  // nicht zufällig treffen – die Shops vergeben ihre Codes unabhängig.
   const known = new Set(
     (
-      await db.many('SELECT assigned_code_norm FROM creators WHERE assigned_code_norm IS NOT NULL')
-    ).map((r) => r.assigned_code_norm)
+      await db.many('SELECT code_norm FROM creator_codes WHERE brand_id = $1', [brandId])
+    ).map((r) => r.code_norm)
   );
 
   const unknownCodes = new Map();
@@ -34,8 +37,9 @@ async function importSalesCsv(text, { filename = 'upload.csv', actor = 'admin' }
 
   const result = await db.tx(async (t) => {
     const imp = await t.one(
-      'INSERT INTO imports (filename, rows_total, uploaded_by) VALUES ($1, $2, $3) RETURNING id',
-      [filename, parsed.total, actor]
+      `INSERT INTO imports (filename, rows_total, uploaded_by, brand_id)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [filename, parsed.total, actor, brandId]
     );
     const importId = imp.id;
 
@@ -60,14 +64,14 @@ async function importSalesCsv(text, { filename = 'upload.csv', actor = 'admin' }
         );
         return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${
           chunk.length * 6 + 1
-        })`;
+        }, $${chunk.length * 6 + 2})`;
       });
-      values.push(importId);
+      values.push(importId, brandId);
 
       const res = await t.many(
-        `INSERT INTO sales (order_ref, code_norm, order_date, gross_amount, net_amount, status, import_id)
+        `INSERT INTO sales (order_ref, code_norm, order_date, gross_amount, net_amount, status, import_id, brand_id)
          VALUES ${placeholders.join(', ')}
-         ON CONFLICT (order_ref) DO UPDATE SET
+         ON CONFLICT (brand_id, order_ref) DO UPDATE SET
            code_norm    = EXCLUDED.code_norm,
            order_date   = EXCLUDED.order_date,
            gross_amount = EXCLUDED.gross_amount,
@@ -100,7 +104,12 @@ async function importSalesCsv(text, { filename = 'upload.csv', actor = 'admin' }
     return { importId, inserted, updated };
   });
 
-  await db.log(actor, 'import.sales', filename, `${result.inserted} neu, ${result.updated} aktualisiert`);
+  await db.log(
+    actor,
+    'import.sales',
+    filename,
+    `${result.inserted} neu, ${result.updated} aktualisiert (Marke ${brandId})`
+  );
 
   return {
     ok: true,

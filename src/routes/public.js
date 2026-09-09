@@ -6,8 +6,19 @@ const db = require('../db');
 const { validateApplication, normalizeEmail } = require('../lib/validate');
 const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
+const rateLimit = require('../lib/ratelimit');
 
 const router = express.Router();
+
+// Bewusst großzügig: Ein Mensch bewirbt sich einmal und fordert seinen
+// Login-Link vielleicht zwei-, dreimal an. Alles darüber ist Automatik.
+const LIMITS = {
+  apply: { limit: 5, windowSeconds: 60 * 60 },
+  loginIp: { limit: 8, windowSeconds: 15 * 60 },
+  // Zusätzlich je Adresse, damit niemand über das Login-Formular fremde
+  // Postfächer mit Links zuschütten kann.
+  loginEmail: { limit: 5, windowSeconds: 60 * 60 },
+};
 
 // --- Bewerbung ---------------------------------------------------------------
 
@@ -23,7 +34,22 @@ router.get('/', (req, res) => {
 });
 
 router.post('/bewerben', async (req, res) => {
-  const ip = req.ip;
+  const ip = rateLimit.clientIp(req);
+
+  const gate = await rateLimit.hit(`apply:${ip}`, LIMITS.apply);
+  if (!gate.allowed) {
+    res.set('Retry-After', String(gate.retryAfter));
+    return res.status(429).render('apply', {
+      title: 'Creator-Code beantragen',
+      nav: 'apply',
+      values: {},
+      errors: {
+        form: 'Von dieser Verbindung sind gerade zu viele Bewerbungen eingegangen. Bitte versuche es in einer Stunde noch einmal – oder schreib uns direkt.',
+      },
+      src: '',
+    });
+  }
+
   const { values, errors } = await validateApplication(req.body, { ip });
 
   if (Object.keys(errors).length) {
@@ -115,7 +141,28 @@ router.get('/login', (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  const ip = rateLimit.clientIp(req);
   const email = normalizeEmail(req.body.email);
+
+  // Zwei Zähler: einer gegen viele Versuche aus einer Richtung, einer dagegen,
+  // dass ein einzelnes Postfach mit Login-Links zugeschüttet wird.
+  const byIp = await rateLimit.hit(`login:${ip}`, LIMITS.loginIp);
+  const byEmail = email
+    ? await rateLimit.hit(`login-mail:${email}`, LIMITS.loginEmail)
+    : { allowed: true };
+
+  if (!byIp.allowed || !byEmail.allowed) {
+    res.set('Retry-After', String(byIp.retryAfter || byEmail.retryAfter || 900));
+    return res.status(429).render('login', {
+      title: 'Login',
+      nav: 'login',
+      sent: false,
+      hasSmtp: mailer.hasSmtp(),
+      error:
+        'Es wurden gerade zu viele Login-Links angefordert. Bitte warte einen Moment und versuche es dann noch einmal.',
+    });
+  }
+
   const creator = await db.one('SELECT * FROM creators WHERE email_norm = $1', [email]);
 
   // Bewusst immer dieselbe Rückmeldung – sonst verrät das Formular,

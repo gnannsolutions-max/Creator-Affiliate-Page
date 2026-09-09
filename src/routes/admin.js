@@ -8,6 +8,7 @@ const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
 const { normalizeCode, codeIssue, codeTaken } = require('../lib/validate');
 const rateLimit = require('../lib/ratelimit');
+const payout = require('../lib/payout');
 const { importSalesCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays } = require('../lib/dates');
@@ -166,12 +167,19 @@ async function renderCreator(req, res, extra = {}) {
     ? await db.one('SELECT * FROM snapshot_totals WHERE run_id = $1 AND creator_id = $2', [run.id, c.id])
     : null;
 
+  // Die Kontodaten werden hier vollständig gezeigt – ohne sie lässt sich die
+  // Überweisung nicht auslösen. In der Creator-Liste stehen sie bewusst nicht.
+  const bank = await payout.load(c.id);
+
   return res.render('admin/creator', {
     title: c.full_name,
     nav: 'admin-creators',
     c,
     run,
     totals,
+    bank,
+    formatIban: payout.formatIban,
+    taxStatusLabel: payout.TAX_STATUS,
     defaultPeriod: monthKey(addDays(localDate(), -15)),
     flash: req.query.ok || null,
     error: null,

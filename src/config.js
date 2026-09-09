@@ -68,6 +68,9 @@ const config = {
     'Dein Passwort für den Adminbereich, mindestens 12 Zeichen.'
   ),
   adminName: process.env.ADMIN_NAME || 'Admin',
+  // Adresse für interne Benachrichtigungen (neue Bewerbung). Ohne Eintrag
+  // verschickt das Portal keine – die Bewerbung steht dann nur im Adminbereich.
+  notifyEmail: process.env.NOTIFY_EMAIL || '',
 
   program: {
     name: process.env.PROGRAM_NAME || 'Creator Programm',

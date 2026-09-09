@@ -22,7 +22,9 @@
     "@netlify/database",
   ]
   # Die EJS-Templates gehören ins Function-Bundle, sonst findet Express keine Views.
-  included_files = ["src/views/**", "src/schema.sql"]
+  # Die Stylesheets kommen mit ins Bündel, obwohl sie das CDN ausliefert: Die
+  # Function berechnet daraus die Versionskennung für <link rel="stylesheet">.
+  included_files = ["src/views/**", "src/schema.sql", "public/*.css"]
 
 # Tägliche Aktualisierung: stündlich in UTC, die Function entscheidet selbst,
 # ob in Europe/Berlin gerade die konfigurierte Stunde ist (Sommerzeit!).

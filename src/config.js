@@ -84,6 +84,13 @@ const config = {
     representative: process.env.COMPANY_REPRESENTATIVE || '',
     email: process.env.COMPANY_EMAIL || '',
     phone: process.env.COMPANY_PHONE || '',
+    // Nur bei eingetragenen Gesellschaften: Registergericht und -nummer,
+    // z. B. „Amtsgericht Ulm, HRB 12345“ (§ 5 Abs. 1 Nr. 4 DDG).
+    register: process.env.COMPANY_REGISTER || '',
+    // Umsatzsteuer-Identifikationsnummer, falls vorhanden (§ 5 Abs. 1 Nr. 6 DDG,
+    // § 27a UStG). Ohne USt-IdNr. bleibt die Zeile weg – die Steuernummer
+    // gehört ausdrücklich nicht ins Impressum.
+    vatId: process.env.COMPANY_VAT_ID || '',
     // Nur ausfüllen, wenn ihr eine/n Datenschutzbeauftragte/n benannt habt.
     dpo: process.env.DPO_CONTACT || '',
     // Zuständig ist die Behörde am Sitz des Verantwortlichen, nicht am Wohnort.

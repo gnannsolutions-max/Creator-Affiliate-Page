@@ -1,0 +1,71 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Import zurücknehmen</h1>
+    <p><span class="mono"><%= record.filename %></span> · hochgeladen <%= formatDateTimeDe(record.created_at) %><%= record.uploaded_by ? ' von ' + record.uploaded_by : '' %></p>
+  </div>
+
+  <div class="note note--danger">
+    <p><strong>Das lässt sich nicht rückgängig machen.</strong> Gelöscht werden <%= num(stats.rows) %> Bestellungen mit zusammen <%= money(stats.gross) %> Umsatz.</p>
+    <% if (record.rows_updated > 0) { %>
+      <p>
+        Achtung: <%= num(record.rows_updated) %> dieser Bestellungen gab es schon vorher – dieser Import hat sie nur
+        überschrieben. Das Portal speichert je Bestellung nur den letzten Stand, der frühere Wert ist also nicht mehr da.
+        Diese Bestellungen verschwinden mit, statt auf ihren alten Stand zurückzugehen. Wenn du sie brauchst, lade sie
+        anschließend noch einmal hoch.
+      </p>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <div class="table-scroll">
+      <table>
+        <tbody>
+          <tr><th>Zeilen in der Datei</th><td class="num"><%= num(record.rows_total) %></td></tr>
+          <tr><th>Davon neu angelegt</th><td class="num"><%= num(record.rows_inserted) %></td></tr>
+          <tr><th>Davon überschrieben</th><td class="num"><%= num(record.rows_updated) %></td></tr>
+          <tr><th>Bestellungen, die jetzt noch an diesem Import hängen</th><td class="num"><%= num(stats.rows) %></td></tr>
+          <tr><th>Umsatz brutto</th><td class="num"><%= money(stats.gross) %></td></tr>
+          <% if (stats.first_day) { %>
+          <tr><th>Zeitraum</th><td class="num"><%= formatDateDe(stats.first_day) %> – <%= formatDateDe(stats.last_day) %></td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+    <% if (stats.rows !== record.rows_inserted + record.rows_updated) { %>
+      <p class="small muted" style="margin-top:12px">
+        Die Zahl unten weicht von der Datei ab: Ein späterer Import hat einen Teil dieser Bestellungen inzwischen
+        übernommen. Gelöscht wird nur, was aktuell noch diesem Import zugeordnet ist.
+      </p>
+    <% } %>
+  </div>
+
+  <% if (codes.length) { %>
+  <div class="card card--flush">
+    <div class="card-head"><h2>Betroffene Codes</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Code</th><th class="num">Bestellungen</th></tr></thead>
+        <tbody>
+          <% codes.forEach(function (c) { %>
+          <tr><td class="mono"><%= c.code_norm %></td><td class="num"><%= num(c.rows) %></td></tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="card">
+    <p>Nach dem Löschen werden die Creator-Dashboards sofort neu berechnet, damit dort keine Testzahlen stehen bleiben.</p>
+    <form method="post" action="/admin/import/<%= record.id %>/zuruecknehmen">
+      <div class="actions">
+        <button class="btn btn--danger" type="submit">Endgültig löschen</button>
+        <a class="btn btn--ghost" href="/admin/import">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

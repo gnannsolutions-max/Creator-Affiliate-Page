@@ -7,6 +7,7 @@ const { validateApplication, normalizeEmail } = require('../lib/validate');
 const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
 const rateLimit = require('../lib/ratelimit');
+const partners = require('../lib/partners');
 
 const router = express.Router();
 
@@ -35,6 +36,7 @@ router.get('/', (req, res) => {
     // bewusst nicht ein – die Landingpage hat ein eigenes Erscheinungsbild.
     nav: 'home',
     applyUrl: src ? `/bewerben?src=${encodeURIComponent(src)}` : '/bewerben',
+    partners: partners.all(),
   });
 });
 

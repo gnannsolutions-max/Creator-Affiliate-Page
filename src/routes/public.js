@@ -86,6 +86,18 @@ router.post('/bewerben', async (req, res) => {
     .send({ to: creator.email, ...mail })
     .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
 
+  // Interne Benachrichtigung. Scheitert sie, ist das für den Creator folgenlos –
+  // die Bewerbung ist gespeichert und steht im Adminbereich.
+  if (config.notifyEmail) {
+    const notice = mailer.templates.newApplication(
+      creator,
+      `${config.baseUrl}/admin/creators/${creator.id}`
+    );
+    await mailer
+      .send({ to: config.notifyEmail, ...notice })
+      .catch((err) => console.error('Benachrichtigung fehlgeschlagen:', err.message));
+  }
+
   res.render('applied', {
     title: 'Bewerbung eingegangen',
     nav: 'apply',

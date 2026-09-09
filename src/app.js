@@ -10,6 +10,7 @@ const db = require('./db');
 const auth = require('./lib/auth');
 const format = require('./lib/format');
 const dates = require('./lib/dates');
+const assets = require('./lib/assets');
 
 /**
  * Findet das Verzeichnis mit den EJS-Vorlagen.
@@ -83,6 +84,7 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
     res.locals.company = config.company;
     res.locals.baseUrl = config.baseUrl;
     res.locals.termsVersion = config.termsVersion;
+    res.locals.asset = assets.asset;
     res.locals.creator = null;
     res.locals.admin = null;
     res.locals.nav = null;

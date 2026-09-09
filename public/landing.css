@@ -1,0 +1,269 @@
+/* Landingpage (src/views/home.ejs).
+   Bewusst eine eigene Datei statt eines <style>-Blocks: Die
+   Content-Security-Policy erlaubt Stile nur aus eigener Quelle.
+   Alle Regeln sind mit .snc- praefixiert und auf #snc-page gescoped,
+   kollidieren also nicht mit styles.css. */
+
+#snc-page{
+  --snc-bg:#08090B;
+  --snc-bg-2:#0E1013;
+  --snc-bg-3:#14171B;
+  --snc-line:rgba(255,255,255,.09);
+  --snc-line-strong:rgba(255,255,255,.16);
+  --snc-fg:#F4F6F5;
+  --snc-muted:#9BA3A6;
+  --snc-accent:#D3FF54;
+  --snc-accent-dim:rgba(211,255,84,.14);
+  --snc-radius:18px;
+  --snc-max:1140px;
+  --snc-font:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  font-family:var(--snc-font);
+  background:var(--snc-bg);
+  color:var(--snc-fg);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+#snc-page *,#snc-page *::before,#snc-page *::after{box-sizing:border-box;}
+#snc-page p,#snc-page h1,#snc-page h2,#snc-page h3,#snc-page h4,#snc-page ul,#snc-page ol,#snc-page figure{margin:0;}
+#snc-page ul{padding:0;list-style:none;}
+#snc-page a{color:inherit;text-decoration:none;}
+#snc-page img{max-width:100%;display:block;}
+#snc-page :focus-visible{outline:2px solid var(--snc-accent);outline-offset:3px;border-radius:6px;}
+
+#snc-page .snc-wrap{width:100%;max-width:var(--snc-max);margin:0 auto;padding:0 24px;}
+#snc-page section{position:relative;}
+
+/* ---------- Typo-Skala ---------- */
+#snc-page .snc-eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--snc-accent);
+  padding:7px 14px;border:1px solid var(--snc-accent-dim);border-radius:999px;
+  background:rgba(211,255,84,.05);
+}
+#snc-page .snc-eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--snc-accent);}
+#snc-page h1{
+  font-size:clamp(2.5rem,6.2vw,4.6rem);line-height:1.02;letter-spacing:-.035em;font-weight:800;
+}
+#snc-page h2{
+  font-size:clamp(1.85rem,3.6vw,2.9rem);line-height:1.1;letter-spacing:-.03em;font-weight:750;
+}
+#snc-page h3{font-size:1.14rem;line-height:1.35;letter-spacing:-.015em;font-weight:650;}
+#snc-page .snc-lead{font-size:clamp(1.02rem,1.7vw,1.24rem);color:var(--snc-muted);max-width:60ch;}
+#snc-page .snc-kicker{
+  font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--snc-muted);
+}
+#snc-page .snc-accent{color:var(--snc-accent);}
+
+/* ---------- Buttons ---------- */
+#snc-page .snc-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:inherit;font-size:.98rem;font-weight:650;letter-spacing:-.01em;
+  padding:15px 28px;border-radius:999px;border:1px solid transparent;cursor:pointer;
+  transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease;
+  white-space:nowrap;
+}
+#snc-page .snc-btn--primary{
+  background:var(--snc-accent);color:#0A0C06;
+  box-shadow:0 8px 30px rgba(211,255,84,.16);
+}
+#snc-page .snc-btn--primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(211,255,84,.26);}
+#snc-page .snc-btn--ghost{border-color:var(--snc-line-strong);color:var(--snc-fg);background:transparent;}
+#snc-page .snc-btn--ghost:hover{border-color:var(--snc-fg);transform:translateY(-2px);}
+#snc-page .snc-btn--sm{padding:11px 20px;font-size:.9rem;}
+#snc-page .snc-btn svg{width:16px;height:16px;flex:none;}
+
+/* ---------- Header ---------- */
+#snc-page .snc-header{
+  position:sticky;top:0;z-index:40;
+  background:rgba(8,9,11,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--snc-line);
+}
+#snc-page .snc-header-in{display:flex;align-items:center;height:70px;gap:20px;}
+#snc-page .snc-logo{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.02em;}
+#snc-page .snc-logo-mark{
+  width:30px;height:30px;border-radius:9px;flex:none;
+  background:linear-gradient(140deg,var(--snc-accent),#8FCF2A);
+  display:grid;place-items:center;color:#0A0C06;font-size:13px;font-weight:800;letter-spacing:-.04em;
+}
+#snc-page .snc-logo span{font-size:.98rem;}
+#snc-page .snc-logo small{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--snc-muted);font-weight:600;margin-top:-2px;}
+#snc-page .snc-nav{display:flex;align-items:center;gap:30px;margin-left:38px;}
+#snc-page .snc-nav a{font-size:.92rem;color:var(--snc-muted);transition:color .15s ease;}
+#snc-page .snc-nav a:hover{color:var(--snc-fg);}
+/* Login und Bewerbung stehen immer rechts oben – auch auf dem Handy, wo die
+   Sprungmarken ausgeblendet werden. */
+#snc-page .snc-header-actions{display:flex;align-items:center;gap:10px;margin-left:auto;}
+#snc-page .snc-login{
+  font-size:.92rem;font-weight:600;color:var(--snc-fg);
+  display:inline-flex;align-items:center;gap:7px;padding:11px 16px;border-radius:999px;
+  transition:background .15s ease;
+}
+#snc-page .snc-login:hover{background:rgba(255,255,255,.07);}
+#snc-page .snc-login svg{width:15px;height:15px;flex:none;color:var(--snc-muted);}
+
+/* ---------- Hero ---------- */
+#snc-page .snc-hero{padding:clamp(72px,11vw,132px) 0 clamp(56px,7vw,92px);overflow:hidden;}
+#snc-page .snc-hero::before{
+  content:"";position:absolute;inset:-30% -10% auto -10%;height:120%;pointer-events:none;
+  background:
+    radial-gradient(58% 46% at 50% 0%,rgba(211,255,84,.13),transparent 68%),
+    radial-gradient(40% 34% at 82% 18%,rgba(90,150,255,.09),transparent 70%);
+}
+#snc-page .snc-hero-in{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:26px;}
+#snc-page .snc-hero h1{max-width:15ch;}
+#snc-page .snc-hero .snc-lead{max-width:56ch;}
+#snc-page .snc-cta-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:4px;}
+#snc-page .snc-hero-note{font-size:.87rem;color:var(--snc-muted);}
+
+/* ---------- Kategorie-Leiste ---------- */
+#snc-page .snc-cats{border-block:1px solid var(--snc-line);background:var(--snc-bg-2);}
+#snc-page .snc-cats-in{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px 40px;
+  padding:26px 24px;
+}
+#snc-page .snc-cats-label{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--snc-muted);font-weight:600;}
+#snc-page .snc-cat{
+  font-size:1.02rem;font-weight:600;letter-spacing:-.01em;color:rgba(244,246,245,.72);
+  display:flex;align-items:center;gap:9px;
+}
+#snc-page .snc-cat::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--snc-accent);opacity:.75;}
+
+/* ---------- Generisches Section-Padding ---------- */
+#snc-page .snc-sec{padding:clamp(66px,9vw,112px) 0;}
+#snc-page .snc-sec-head{max-width:64ch;display:flex;flex-direction:column;gap:16px;margin-bottom:clamp(34px,5vw,54px);}
+
+/* ---------- Über uns / Split ---------- */
+#snc-page .snc-split{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(34px,6vw,80px);align-items:start;}
+#snc-page .snc-quote{
+  border-left:2px solid var(--snc-accent);padding-left:22px;
+  font-size:clamp(1.1rem,1.9vw,1.34rem);line-height:1.45;letter-spacing:-.02em;font-weight:550;
+}
+#snc-page .snc-body-copy{display:flex;flex-direction:column;gap:18px;color:var(--snc-muted);font-size:1.02rem;}
+#snc-page .snc-body-copy strong{color:var(--snc-fg);font-weight:600;}
+
+/* ---------- Karten-Grid ---------- */
+#snc-page .snc-grid{display:grid;gap:16px;}
+#snc-page .snc-grid--3{grid-template-columns:repeat(3,1fr);}
+#snc-page .snc-grid--2{grid-template-columns:repeat(2,1fr);}
+#snc-page .snc-card{
+  background:linear-gradient(180deg,var(--snc-bg-3),var(--snc-bg-2));
+  border:1px solid var(--snc-line);border-radius:var(--snc-radius);
+  padding:30px 28px;display:flex;flex-direction:column;gap:12px;
+  transition:border-color .2s ease,transform .2s ease;
+}
+#snc-page .snc-card:hover{border-color:var(--snc-line-strong);transform:translateY(-3px);}
+#snc-page .snc-card p{color:var(--snc-muted);font-size:.97rem;}
+#snc-page .snc-card-icon{
+  width:40px;height:40px;border-radius:11px;flex:none;
+  background:var(--snc-accent-dim);border:1px solid rgba(211,255,84,.2);
+  display:grid;place-items:center;color:var(--snc-accent);margin-bottom:4px;
+}
+#snc-page .snc-card-icon svg{width:19px;height:19px;}
+
+/* ---------- Ablauf / Steps ---------- */
+#snc-page .snc-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--snc-line);border-radius:var(--snc-radius);overflow:hidden;background:var(--snc-bg-2);}
+#snc-page .snc-step{padding:32px 28px;border-right:1px solid var(--snc-line);display:flex;flex-direction:column;gap:11px;}
+#snc-page .snc-step:last-child{border-right:none;}
+#snc-page .snc-step-no{
+  font-size:.8rem;font-weight:700;letter-spacing:.04em;color:var(--snc-accent);
+  display:flex;align-items:center;gap:10px;
+}
+#snc-page .snc-step-no::after{content:"";height:1px;flex:1;background:var(--snc-line);}
+#snc-page .snc-step p{color:var(--snc-muted);font-size:.95rem;}
+
+/* ---------- Passt / Passt nicht ---------- */
+#snc-page .snc-fit{
+  border:1px solid var(--snc-line);border-radius:var(--snc-radius);overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;background:var(--snc-bg-2);
+}
+#snc-page .snc-fit-col{padding:34px 32px;}
+#snc-page .snc-fit-col + .snc-fit-col{border-left:1px solid var(--snc-line);}
+#snc-page .snc-fit-title{display:flex;align-items:center;gap:10px;font-weight:650;font-size:1.04rem;margin-bottom:18px;}
+#snc-page .snc-fit-list li{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:11px 0;border-top:1px solid var(--snc-line);color:var(--snc-muted);font-size:.97rem;
+}
+#snc-page .snc-fit-list li:first-child{border-top:none;padding-top:0;}
+#snc-page .snc-tick,#snc-page .snc-cross{flex:none;width:17px;height:17px;margin-top:3px;}
+#snc-page .snc-tick{color:var(--snc-accent);}
+#snc-page .snc-cross{color:#6E7679;}
+
+/* ---------- FAQ ---------- */
+#snc-page .snc-faq{border-top:1px solid var(--snc-line);}
+#snc-page .snc-faq details{border-bottom:1px solid var(--snc-line);}
+#snc-page .snc-faq summary{
+  list-style:none;cursor:pointer;padding:24px 40px 24px 0;position:relative;
+  font-size:1.05rem;font-weight:600;letter-spacing:-.015em;
+}
+#snc-page .snc-faq summary::-webkit-details-marker{display:none;}
+#snc-page .snc-faq summary::after{
+  content:"";position:absolute;right:6px;top:50%;width:11px;height:11px;
+  border-right:2px solid var(--snc-muted);border-bottom:2px solid var(--snc-muted);
+  transform:translateY(-70%) rotate(45deg);transition:transform .2s ease,border-color .2s ease;
+}
+#snc-page .snc-faq details[open] summary::after{transform:translateY(-25%) rotate(225deg);border-color:var(--snc-accent);}
+#snc-page .snc-faq-a{padding:0 60px 26px 0;color:var(--snc-muted);font-size:1rem;max-width:74ch;}
+
+/* ---------- Schluss-CTA ---------- */
+#snc-page .snc-final{
+  position:relative;border-radius:26px;overflow:hidden;
+  border:1px solid var(--snc-line-strong);
+  background:linear-gradient(160deg,#171B12,var(--snc-bg-2) 62%);
+  padding:clamp(44px,7vw,76px) clamp(28px,5vw,64px);
+  text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px;
+}
+#snc-page .snc-final::before{
+  content:"";position:absolute;inset:auto -20% -70% -20%;height:130%;pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 100%,rgba(211,255,84,.16),transparent 70%);
+}
+#snc-page .snc-final > *{position:relative;}
+#snc-page .snc-final h2{max-width:18ch;}
+#snc-page .snc-final .snc-lead{max-width:52ch;}
+
+/* ---------- Footer ---------- */
+#snc-page .snc-footer{border-top:1px solid var(--snc-line);padding:44px 0 52px;margin-top:clamp(60px,8vw,100px);}
+#snc-page .snc-footer-in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:22px;align-items:center;}
+#snc-page .snc-footer-links{display:flex;flex-wrap:wrap;gap:24px;}
+#snc-page .snc-footer-links a,#snc-page .snc-footer small{font-size:.88rem;color:var(--snc-muted);}
+#snc-page .snc-footer-links a:hover{color:var(--snc-fg);}
+
+/* ---------- Responsive ---------- */
+@media (max-width:960px){
+  #snc-page .snc-grid--3{grid-template-columns:1fr 1fr;}
+  #snc-page .snc-steps{grid-template-columns:1fr 1fr;}
+  #snc-page .snc-step{border-bottom:1px solid var(--snc-line);}
+  #snc-page .snc-step:nth-child(2n){border-right:none;}
+  #snc-page .snc-step:nth-last-child(-n+2){border-bottom:none;}
+  #snc-page .snc-split{grid-template-columns:1fr;}
+  #snc-page .snc-nav{display:none;}
+  #snc-page .snc-logo small{display:none;}
+}
+@media (max-width:640px){
+  #snc-page .snc-grid--3,#snc-page .snc-grid--2{grid-template-columns:1fr;}
+  #snc-page .snc-steps{grid-template-columns:1fr;}
+  #snc-page .snc-step{border-right:none;}
+  #snc-page .snc-step:last-child{border-bottom:none;}
+  #snc-page .snc-fit{grid-template-columns:1fr;}
+  #snc-page .snc-fit-col + .snc-fit-col{border-left:none;border-top:1px solid var(--snc-line);}
+  #snc-page .snc-cta-row .snc-btn{width:100%;}
+  #snc-page .snc-cta-row{width:100%;}
+  #snc-page .snc-faq-a{padding-right:0;}
+  #snc-page .snc-header-in{gap:8px;}
+  #snc-page .snc-login{padding:10px 12px;}
+  #snc-page .snc-login span{display:none;}
+  #snc-page .snc-login svg{width:18px;height:18px;color:var(--snc-fg);}
+}
+@media (prefers-reduced-motion:reduce){
+  #snc-page *{transition:none!important;}
+}
+
+/* Ersetzt die frueheren style-Attribute: Die Content-Security-Policy erlaubt
+   keine Stile im Dokument, deshalb steht hier alles als Klasse. */
+body{margin:0;}
+#snc-page .snc-sec--tight{padding-top:0;}
+#snc-page .snc-sec-head--flush{margin-bottom:0;}
+#snc-page .snc-fit-title--muted{color:var(--snc-muted);}

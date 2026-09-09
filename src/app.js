@@ -75,6 +75,7 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
   // und Einrichtungsseite sie hat, wenn später etwas schiefgeht.
   app.use((req, res, next) => {
     res.locals.program = config.program;
+    res.locals.company = config.company;
     res.locals.baseUrl = config.baseUrl;
     res.locals.termsVersion = config.termsVersion;
     res.locals.creator = null;
@@ -164,6 +165,7 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
     // Die Fehlerseite darf niemals selbst scheitern, auch wenn der Fehler
     // auftrat, bevor die View-Variablen gesetzt waren.
     res.locals.program = res.locals.program || config.program;
+    res.locals.company = res.locals.company || config.company;
     res.locals.creator = res.locals.creator || null;
     res.locals.admin = res.locals.admin || null;
     res.locals.nav = res.locals.nav || null;

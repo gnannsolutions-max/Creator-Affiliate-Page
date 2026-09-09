@@ -72,6 +72,26 @@ const config = {
   // verschickt das Portal keine – die Bewerbung steht dann nur im Adminbereich.
   notifyEmail: process.env.NOTIFY_EMAIL || '',
 
+  // Angaben zum Verantwortlichen. Sie stehen in der Datenschutzerklärung und
+  // sind dort Pflicht (Art. 13 Abs. 1 lit. a DSGVO). Solange sie fehlen, weist
+  // die Seite selbst darauf hin, statt eine unvollständige Erklärung als
+  // fertige auszugeben.
+  company: {
+    name: process.env.COMPANY_NAME || '',
+    street: process.env.COMPANY_STREET || '',
+    city: process.env.COMPANY_CITY || '',
+    country: process.env.COMPANY_COUNTRY || 'Deutschland',
+    representative: process.env.COMPANY_REPRESENTATIVE || '',
+    email: process.env.COMPANY_EMAIL || '',
+    phone: process.env.COMPANY_PHONE || '',
+    // Nur ausfüllen, wenn ihr eine/n Datenschutzbeauftragte/n benannt habt.
+    dpo: process.env.DPO_CONTACT || '',
+    // Zuständig ist die Behörde am Sitz des Verantwortlichen, nicht am Wohnort.
+    authority: process.env.SUPERVISORY_AUTHORITY || '',
+    // Datum der letzten inhaltlichen Änderung der Datenschutzerklärung.
+    privacyVersion: process.env.PRIVACY_VERSION || '2026-09-09',
+  },
+
   program: {
     name: process.env.PROGRAM_NAME || 'Creator Programm',
     brand: process.env.PROGRAM_BRAND || 'Creator Programm',
@@ -129,6 +149,16 @@ if (isProd) {
     });
   }
 }
+
+// Ohne Name, Anschrift und Kontakt ist die Datenschutzerklärung unvollständig.
+// Das ist kein Startfehler – das Portal läuft – aber die Seite sagt es sichtbar.
+config.company.isComplete = Boolean(
+  config.company.name &&
+    config.company.street &&
+    config.company.city &&
+    (config.company.email || config.program.supportEmail)
+);
+config.company.contactEmail = config.company.email || config.program.supportEmail;
 
 config.setupErrors = setupErrors;
 config.isConfigured = setupErrors.length === 0;

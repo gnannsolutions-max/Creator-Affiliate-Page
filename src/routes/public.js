@@ -20,9 +20,27 @@ const LIMITS = {
   loginEmail: { limit: 5, windowSeconds: 60 * 60 },
 };
 
+// --- Startseite --------------------------------------------------------------
+
+/**
+ * Die Startseite ist die Landingpage, nicht das Formular. Wer über einen
+ * Kampagnenlink kommt (`/?src=…`), soll die Kennung trotzdem bis zur Bewerbung
+ * behalten – deshalb wird sie an jeden Bewerbungs-Button angehängt.
+ */
+router.get('/', (req, res) => {
+  if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
+  const src = String(req.query.src || '').slice(0, 60);
+  res.render('home', {
+    // home.ejs bringt Kopfbereich und Titel selbst mit und bindet die Partials
+    // bewusst nicht ein – die Landingpage hat ein eigenes Erscheinungsbild.
+    nav: 'home',
+    applyUrl: src ? `/bewerben?src=${encodeURIComponent(src)}` : '/bewerben',
+  });
+});
+
 // --- Bewerbung ---------------------------------------------------------------
 
-router.get('/', (req, res) => {
+router.get('/bewerben', (req, res) => {
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
   res.render('apply', {
     title: 'Creator-Code beantragen',
@@ -213,6 +231,10 @@ router.get('/status', auth.requireCreator, (req, res) => {
 });
 
 // --- Rechtstexte -------------------------------------------------------------
+
+router.get('/impressum', (req, res) => {
+  res.render('imprint', { title: 'Impressum', nav: null });
+});
 
 router.get('/teilnahmebedingungen', (req, res) => {
   res.render('terms', { title: 'Teilnahmebedingungen', nav: null });

@@ -112,6 +112,28 @@ ${config.program.brand}`,
     };
   },
 
+  /** Interne Benachrichtigung an den Adminbereich, nicht an den Creator. */
+  newApplication(creator, adminUrl) {
+    return {
+      kind: 'notification',
+      link: adminUrl,
+      subject: `Neue Bewerbung: ${creator.full_name} (${creator.requested_code})`,
+      text: `Neue Creator-Bewerbung im Portal.
+
+Name:       ${creator.full_name}
+E-Mail:     ${creator.email}
+Wunsch-Code: ${creator.requested_code}
+Instagram:  @${creator.instagram}${creator.tiktok ? `\nTikTok:     @${creator.tiktok}` : ''}${
+        creator.youtube ? `\nYouTube:    @${creator.youtube}` : ''
+      }
+
+Prüfen und freigeben:
+${adminUrl}
+
+Diese Nachricht geht nur an euch, nicht an den Creator.`,
+    };
+  },
+
   rejected(creator) {
     return {
       kind: 'rejection',

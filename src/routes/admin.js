@@ -318,6 +318,7 @@ router.get('/import', async (req, res) => {
     title: 'Umsätze importieren',
     nav: 'admin-import',
     result: null,
+    flash: req.query.ok || null,
     refreshTime: config.refresh.label,
     imports: await db.many('SELECT * FROM imports ORDER BY id DESC LIMIT 15'),
   });
@@ -345,9 +346,86 @@ router.post('/import', upload.single('file'), async (req, res) => {
     title: 'Umsätze importieren',
     nav: 'admin-import',
     result,
+    flash: null,
     refreshTime: config.refresh.label,
     imports: await db.many('SELECT * FROM imports ORDER BY id DESC LIMIT 15'),
   });
+});
+
+// --- Import zurücknehmen -----------------------------------------------------
+//
+//  Gedacht für Testläufe und für Dateien, die versehentlich hochgeladen wurden.
+//
+//  Wichtige Einschränkung, die auch auf der Bestätigungsseite steht: Das Portal
+//  speichert von einer Bestellung nur den letzten Stand. Zeilen, die dieser
+//  Import nicht neu angelegt, sondern überschrieben hat, lassen sich deshalb
+//  nicht auf ihren früheren Wert zurücksetzen – sie werden mitgelöscht. Bei
+//  einem reinen Testimport ist das folgenlos, weil dort alles neu ist.
+
+/** Was hängt aktuell an diesem Import? */
+async function importSummary(rawId) {
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const record = await db.one('SELECT * FROM imports WHERE id = $1', [id]);
+  if (!record) return null;
+  const stats = await db.one(
+    `SELECT COUNT(*)::int AS rows,
+            COALESCE(SUM(gross_amount), 0) AS gross,
+            MIN(order_date) AS first_day,
+            MAX(order_date) AS last_day
+       FROM sales WHERE import_id = $1`,
+    [id]
+  );
+  const codes = await db.many(
+    `SELECT code_norm, COUNT(*)::int AS rows FROM sales WHERE import_id = $1
+      GROUP BY code_norm ORDER BY rows DESC LIMIT 12`,
+    [id]
+  );
+  return { id, record, stats, codes };
+}
+
+router.get('/import/:id/zuruecknehmen', async (req, res) => {
+  const summary = await importSummary(req.params.id);
+  if (!summary) return res.redirect('/admin/import');
+  res.render('admin/import-rollback', {
+    title: 'Import zurücknehmen',
+    nav: 'admin-import',
+    ...summary,
+  });
+});
+
+router.post('/import/:id/zuruecknehmen', async (req, res) => {
+  const summary = await importSummary(req.params.id);
+  if (!summary) return res.redirect('/admin/import');
+
+  const removed = await db.tx(async (t) => {
+    const rows = await t.many('DELETE FROM sales WHERE import_id = $1 RETURNING id', [summary.id]);
+    await t.run('DELETE FROM imports WHERE id = $1', [summary.id]);
+    return rows.length;
+  });
+
+  await db.log(
+    config.adminName,
+    'import.rolled_back',
+    summary.record.filename,
+    `${removed} Bestellungen entfernt`
+  );
+
+  // Ohne neuen Snapshot stünden die Testzahlen bis zum nächsten Lauf weiter in
+  // den Creator-Dashboards. Deshalb sofort neu rechnen.
+  let refreshed = false;
+  try {
+    await buildSnapshot({ triggeredBy: 'import-rollback' });
+    refreshed = true;
+  } catch (err) {
+    console.error('Snapshot nach Rücknahme fehlgeschlagen:', err.message);
+  }
+
+  const note = refreshed
+    ? `Import „${summary.record.filename}“ zurückgenommen: ${removed} Bestellungen gelöscht, Dashboards neu berechnet.`
+    : `Import „${summary.record.filename}“ zurückgenommen: ${removed} Bestellungen gelöscht. Die Dashboards konnten nicht neu berechnet werden – bitte den Lauf manuell anstoßen.`;
+
+  res.redirect(`/admin/import?ok=${encodeURIComponent(note)}`);
 });
 
 // --- Auszahlungen ------------------------------------------------------------

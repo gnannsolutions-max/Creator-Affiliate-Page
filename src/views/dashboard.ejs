@@ -12,23 +12,52 @@
     </p>
   </div>
 
-  <div class="card">
-    <div class="code-display">
-      <div>
-        <div class="stat-label">Dein Code</div>
-        <div class="code-value"><%= creator.assigned_code %></div>
-      </div>
-      <div>
-        <div class="stat-label">Deine Provision</div>
-        <div class="stat-value" style="font-size:20px"><%= percent(creator.commission_rate) %></div>
-      </div>
-      <div>
-        <div class="stat-label">Rabatt für deine Community</div>
-        <div class="stat-value" style="font-size:20px"><%= percent(creator.customer_discount) %></div>
-      </div>
-      <button class="btn btn--ghost btn--sm" type="button" data-copy="<%= creator.assigned_code %>" style="margin-left:auto">Code kopieren</button>
+  <% if (!brandCards.length) { %>
+    <div class="note note--warn">
+      <p><strong>Dir ist noch keine Marke zugeordnet.</strong> Melde dich kurz bei uns, dann schalten wir dich frei.</p>
     </div>
-  </div>
+  <% } %>
+
+  <% brandCards.forEach(function (b) { %>
+    <div class="card">
+      <div class="card-head" style="padding:0 0 12px">
+        <h2><%= b.brand_name %></h2>
+        <span class="sub"><%= percent(b.commission_rate) %> Provision · <%= percent(b.customer_discount) %> Rabatt für deine Community</span>
+      </div>
+
+      <div class="field" style="margin-bottom:12px">
+        <label for="link_<%= b.brand_id %>">Dein Link – den postest du</label>
+        <div class="code-display" style="gap:10px">
+          <div style="min-width:0;flex:1">
+            <div class="mono" id="link_<%= b.brand_id %>" style="word-break:break-all;font-size:13px"><%= b.link %></div>
+          </div>
+          <button class="btn btn--sm" type="button" data-copy="<%= b.link %>">Link kopieren</button>
+        </div>
+      </div>
+
+      <div class="code-display">
+        <div>
+          <div class="stat-label">Dein Code</div>
+          <div class="code-value" style="font-size:22px"><%= b.code %></div>
+        </div>
+        <% if (b.totals) { %>
+          <div>
+            <div class="stat-label">Umsatz 30 Tage</div>
+            <div class="stat-value" style="font-size:20px"><%= money(b.totals.revenue_30d) %></div>
+          </div>
+          <div>
+            <div class="stat-label">Deine Provision 30 Tage</div>
+            <div class="stat-value" style="font-size:20px"><%= money(b.totals.commission_30d) %></div>
+          </div>
+        <% } %>
+        <button class="btn btn--ghost btn--sm" type="button" data-copy="<%= b.code %>" style="margin-left:auto">Code kopieren</button>
+      </div>
+
+      <p class="small muted" style="margin:12px 0 0">
+        Falls jemand lieber selbst tippt: Der Code funktioniert im Warenkorb genauso. Zugeordnet wird beides.
+      </p>
+    </div>
+  <% }); %>
 
   <% if (!hasPayoutDetails) { %>
     <div class="note note--warn">
@@ -95,6 +124,7 @@
         <thead>
           <tr>
             <th>Datum</th>
+            <th>Marke</th>
             <th>Bestellung</th>
             <th>Status</th>
             <th class="num">Umsatz</th>
@@ -105,6 +135,7 @@
           <% orders.forEach(function (o) { %>
           <tr>
             <td><%= formatDateDe(o.order_date) %></td>
+            <td class="small"><%= o.brand_name || '–' %></td>
             <td class="mono"><%= o.order_ref %></td>
             <td>
               <span class="badge badge--<%= o.status === 'confirmed' ? 'good' : (o.status === 'pending' ? 'warn' : 'danger') %>"><%= statusLabel(o.status) %></span>

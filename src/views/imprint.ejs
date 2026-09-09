@@ -1,0 +1,77 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Impressum</h1>
+    <p>Angaben nach § 5 DDG</p>
+  </div>
+
+  <% if (!company.isComplete) { %>
+    <div class="note note--danger">
+      <p>
+        <strong>Dieses Impressum ist noch nicht vollständig.</strong>
+        Es fehlen die Angaben zum Anbieter. Sie werden über die Umgebungsvariablen
+        <code>COMPANY_NAME</code>, <code>COMPANY_STREET</code>, <code>COMPANY_CITY</code> und
+        <code>COMPANY_EMAIL</code> gesetzt – bei eingetragenen Gesellschaften zusätzlich
+        <code>COMPANY_REPRESENTATIVE</code>, <code>COMPANY_REGISTER</code> und
+        <code>COMPANY_VAT_ID</code>. Solange sie fehlen, ist die Seite nicht
+        rechtskonform und sollte nicht öffentlich beworben werden.
+      </p>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2>Anbieter</h2>
+    <% if (company.isComplete) { %>
+      <p>
+        <strong><%= company.name %></strong><br>
+        <%= company.street %><br>
+        <%= company.city %><br>
+        <%= company.country %>
+      </p>
+    <% } else { %>
+      <p class="muted">[Firma, Rechtsform und Anschrift sind noch nicht hinterlegt.]</p>
+    <% } %>
+
+    <% if (company.representative) { %>
+      <h2 style="margin-top:24px">Vertreten durch</h2>
+      <p><%= company.representative %></p>
+    <% } %>
+
+    <h2 style="margin-top:24px">Kontakt</h2>
+    <p>
+      E-Mail: <a href="mailto:<%= company.contactEmail %>"><%= company.contactEmail %></a>
+      <% if (company.phone) { %><br>Telefon: <%= company.phone %><% } %>
+    </p>
+
+    <% if (company.register || company.vatId) { %>
+      <h2 style="margin-top:24px">Register und Steuern</h2>
+      <p>
+        <% if (company.register) { %>Registereintrag: <%= company.register %><br><% } %>
+        <% if (company.vatId) { %>Umsatzsteuer-Identifikationsnummer nach § 27a UStG: <%= company.vatId %><% } %>
+      </p>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h2>Verbraucherstreitbeilegung</h2>
+    <p class="small muted">
+      Wir sind weder bereit noch verpflichtet, an Streitbeilegungsverfahren vor einer
+      Verbraucherschlichtungsstelle teilzunehmen.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Zu diesem Portal</h2>
+    <p class="small muted">
+      Dieses Portal ist kein Shop. Es ist der Arbeitsbereich für Creator, die für
+      <%= program.brand %> werben: Bewerbung, Freigabe, persönlicher Link und Code,
+      Übersicht über die damit erzielten Bestellungen und die Abwicklung der Provision.
+      Wie wir dabei mit personenbezogenen Daten umgehen, steht in der
+      <a href="/datenschutz">Datenschutzerklärung</a>; die Regeln der Zusammenarbeit
+      stehen in den <a href="/teilnahmebedingungen">Teilnahmebedingungen</a>.
+    </p>
+  </div>
+</main>
+
+<%- include('partials/foot') %>

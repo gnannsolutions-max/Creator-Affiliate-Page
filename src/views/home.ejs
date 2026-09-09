@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<%# Bis Impressum und geprüfte Rechtstexte stehen, soll die Seite nicht in
+    Suchmaschinen auftauchen. Zum Freischalten diese Zeile entfernen. %>
+<meta name="robots" content="noindex, nofollow">
+<title><%= program.brand %> – Affiliate-Programm für Creator</title>
+<meta name="description" content="<%= program.brand %> ist das Affiliate-Netzwerk für Creator in der Fitnessbranche. Ein Zugang, mehrere Marken, ein eigener Rabattcode und ein Dashboard, das zeigt, was deine Reichweite wirklich wert ist.">
+
+<style>
+#snc-page{
+  --snc-bg:#08090B;
+  --snc-bg-2:#0E1013;
+  --snc-bg-3:#14171B;
+  --snc-line:rgba(255,255,255,.09);
+  --snc-line-strong:rgba(255,255,255,.16);
+  --snc-fg:#F4F6F5;
+  --snc-muted:#9BA3A6;
+  --snc-accent:#D3FF54;
+  --snc-accent-dim:rgba(211,255,84,.14);
+  --snc-radius:18px;
+  --snc-max:1140px;
+  --snc-font:"Inter","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+
+  font-family:var(--snc-font);
+  background:var(--snc-bg);
+  color:var(--snc-fg);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+#snc-page *,#snc-page *::before,#snc-page *::after{box-sizing:border-box;}
+#snc-page p,#snc-page h1,#snc-page h2,#snc-page h3,#snc-page h4,#snc-page ul,#snc-page ol,#snc-page figure{margin:0;}
+#snc-page ul{padding:0;list-style:none;}
+#snc-page a{color:inherit;text-decoration:none;}
+#snc-page img{max-width:100%;display:block;}
+#snc-page :focus-visible{outline:2px solid var(--snc-accent);outline-offset:3px;border-radius:6px;}
+
+#snc-page .snc-wrap{width:100%;max-width:var(--snc-max);margin:0 auto;padding:0 24px;}
+#snc-page section{position:relative;}
+
+/* ---------- Typo-Skala ---------- */
+#snc-page .snc-eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--snc-accent);
+  padding:7px 14px;border:1px solid var(--snc-accent-dim);border-radius:999px;
+  background:rgba(211,255,84,.05);
+}
+#snc-page .snc-eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--snc-accent);}
+#snc-page h1{
+  font-size:clamp(2.5rem,6.2vw,4.6rem);line-height:1.02;letter-spacing:-.035em;font-weight:800;
+}
+#snc-page h2{
+  font-size:clamp(1.85rem,3.6vw,2.9rem);line-height:1.1;letter-spacing:-.03em;font-weight:750;
+}
+#snc-page h3{font-size:1.14rem;line-height:1.35;letter-spacing:-.015em;font-weight:650;}
+#snc-page .snc-lead{font-size:clamp(1.02rem,1.7vw,1.24rem);color:var(--snc-muted);max-width:60ch;}
+#snc-page .snc-kicker{
+  font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--snc-muted);
+}
+#snc-page .snc-accent{color:var(--snc-accent);}
+
+/* ---------- Buttons ---------- */
+#snc-page .snc-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:inherit;font-size:.98rem;font-weight:650;letter-spacing:-.01em;
+  padding:15px 28px;border-radius:999px;border:1px solid transparent;cursor:pointer;
+  transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease;
+  white-space:nowrap;
+}
+#snc-page .snc-btn--primary{
+  background:var(--snc-accent);color:#0A0C06;
+  box-shadow:0 8px 30px rgba(211,255,84,.16);
+}
+#snc-page .snc-btn--primary:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(211,255,84,.26);}
+#snc-page .snc-btn--ghost{border-color:var(--snc-line-strong);color:var(--snc-fg);background:transparent;}
+#snc-page .snc-btn--ghost:hover{border-color:var(--snc-fg);transform:translateY(-2px);}
+#snc-page .snc-btn--sm{padding:11px 20px;font-size:.9rem;}
+#snc-page .snc-btn svg{width:16px;height:16px;flex:none;}
+
+/* ---------- Header ---------- */
+#snc-page .snc-header{
+  position:sticky;top:0;z-index:40;
+  background:rgba(8,9,11,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--snc-line);
+}
+#snc-page .snc-header-in{display:flex;align-items:center;height:70px;gap:20px;}
+#snc-page .snc-logo{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.02em;}
+#snc-page .snc-logo-mark{
+  width:30px;height:30px;border-radius:9px;flex:none;
+  background:linear-gradient(140deg,var(--snc-accent),#8FCF2A);
+  display:grid;place-items:center;color:#0A0C06;font-size:13px;font-weight:800;letter-spacing:-.04em;
+}
+#snc-page .snc-logo span{font-size:.98rem;}
+#snc-page .snc-logo small{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--snc-muted);font-weight:600;margin-top:-2px;}
+#snc-page .snc-nav{display:flex;align-items:center;gap:30px;margin-left:38px;}
+#snc-page .snc-nav a{font-size:.92rem;color:var(--snc-muted);transition:color .15s ease;}
+#snc-page .snc-nav a:hover{color:var(--snc-fg);}
+/* Login und Bewerbung stehen immer rechts oben – auch auf dem Handy, wo die
+   Sprungmarken ausgeblendet werden. */
+#snc-page .snc-header-actions{display:flex;align-items:center;gap:10px;margin-left:auto;}
+#snc-page .snc-login{
+  font-size:.92rem;font-weight:600;color:var(--snc-fg);
+  display:inline-flex;align-items:center;gap:7px;padding:11px 16px;border-radius:999px;
+  transition:background .15s ease;
+}
+#snc-page .snc-login:hover{background:rgba(255,255,255,.07);}
+#snc-page .snc-login svg{width:15px;height:15px;flex:none;color:var(--snc-muted);}
+
+/* ---------- Hero ---------- */
+#snc-page .snc-hero{padding:clamp(72px,11vw,132px) 0 clamp(56px,7vw,92px);overflow:hidden;}
+#snc-page .snc-hero::before{
+  content:"";position:absolute;inset:-30% -10% auto -10%;height:120%;pointer-events:none;
+  background:
+    radial-gradient(58% 46% at 50% 0%,rgba(211,255,84,.13),transparent 68%),
+    radial-gradient(40% 34% at 82% 18%,rgba(90,150,255,.09),transparent 70%);
+}
+#snc-page .snc-hero-in{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:26px;}
+#snc-page .snc-hero h1{max-width:15ch;}
+#snc-page .snc-hero .snc-lead{max-width:56ch;}
+#snc-page .snc-cta-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:4px;}
+#snc-page .snc-hero-note{font-size:.87rem;color:var(--snc-muted);}
+
+/* ---------- Kategorie-Leiste ---------- */
+#snc-page .snc-cats{border-block:1px solid var(--snc-line);background:var(--snc-bg-2);}
+#snc-page .snc-cats-in{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px 40px;
+  padding:26px 24px;
+}
+#snc-page .snc-cats-label{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--snc-muted);font-weight:600;}
+#snc-page .snc-cat{
+  font-size:1.02rem;font-weight:600;letter-spacing:-.01em;color:rgba(244,246,245,.72);
+  display:flex;align-items:center;gap:9px;
+}
+#snc-page .snc-cat::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--snc-accent);opacity:.75;}
+
+/* ---------- Generisches Section-Padding ---------- */
+#snc-page .snc-sec{padding:clamp(66px,9vw,112px) 0;}
+#snc-page .snc-sec-head{max-width:64ch;display:flex;flex-direction:column;gap:16px;margin-bottom:clamp(34px,5vw,54px);}
+
+/* ---------- Über uns / Split ---------- */
+#snc-page .snc-split{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(34px,6vw,80px);align-items:start;}
+#snc-page .snc-quote{
+  border-left:2px solid var(--snc-accent);padding-left:22px;
+  font-size:clamp(1.1rem,1.9vw,1.34rem);line-height:1.45;letter-spacing:-.02em;font-weight:550;
+}
+#snc-page .snc-body-copy{display:flex;flex-direction:column;gap:18px;color:var(--snc-muted);font-size:1.02rem;}
+#snc-page .snc-body-copy strong{color:var(--snc-fg);font-weight:600;}
+
+/* ---------- Karten-Grid ---------- */
+#snc-page .snc-grid{display:grid;gap:16px;}
+#snc-page .snc-grid--3{grid-template-columns:repeat(3,1fr);}
+#snc-page .snc-grid--2{grid-template-columns:repeat(2,1fr);}
+#snc-page .snc-card{
+  background:linear-gradient(180deg,var(--snc-bg-3),var(--snc-bg-2));
+  border:1px solid var(--snc-line);border-radius:var(--snc-radius);
+  padding:30px 28px;display:flex;flex-direction:column;gap:12px;
+  transition:border-color .2s ease,transform .2s ease;
+}
+#snc-page .snc-card:hover{border-color:var(--snc-line-strong);transform:translateY(-3px);}
+#snc-page .snc-card p{color:var(--snc-muted);font-size:.97rem;}
+#snc-page .snc-card-icon{
+  width:40px;height:40px;border-radius:11px;flex:none;
+  background:var(--snc-accent-dim);border:1px solid rgba(211,255,84,.2);
+  display:grid;place-items:center;color:var(--snc-accent);margin-bottom:4px;
+}
+#snc-page .snc-card-icon svg{width:19px;height:19px;}
+
+/* ---------- Ablauf / Steps ---------- */
+#snc-page .snc-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--snc-line);border-radius:var(--snc-radius);overflow:hidden;background:var(--snc-bg-2);}
+#snc-page .snc-step{padding:32px 28px;border-right:1px solid var(--snc-line);display:flex;flex-direction:column;gap:11px;}
+#snc-page .snc-step:last-child{border-right:none;}
+#snc-page .snc-step-no{
+  font-size:.8rem;font-weight:700;letter-spacing:.04em;color:var(--snc-accent);
+  display:flex;align-items:center;gap:10px;
+}
+#snc-page .snc-step-no::after{content:"";height:1px;flex:1;background:var(--snc-line);}
+#snc-page .snc-step p{color:var(--snc-muted);font-size:.95rem;}
+
+/* ---------- Passt / Passt nicht ---------- */
+#snc-page .snc-fit{
+  border:1px solid var(--snc-line);border-radius:var(--snc-radius);overflow:hidden;
+  display:grid;grid-template-columns:1fr 1fr;background:var(--snc-bg-2);
+}
+#snc-page .snc-fit-col{padding:34px 32px;}
+#snc-page .snc-fit-col + .snc-fit-col{border-left:1px solid var(--snc-line);}
+#snc-page .snc-fit-title{display:flex;align-items:center;gap:10px;font-weight:650;font-size:1.04rem;margin-bottom:18px;}
+#snc-page .snc-fit-list li{
+  display:flex;gap:12px;align-items:flex-start;
+  padding:11px 0;border-top:1px solid var(--snc-line);color:var(--snc-muted);font-size:.97rem;
+}
+#snc-page .snc-fit-list li:first-child{border-top:none;padding-top:0;}
+#snc-page .snc-tick,#snc-page .snc-cross{flex:none;width:17px;height:17px;margin-top:3px;}
+#snc-page .snc-tick{color:var(--snc-accent);}
+#snc-page .snc-cross{color:#6E7679;}
+
+/* ---------- FAQ ---------- */
+#snc-page .snc-faq{border-top:1px solid var(--snc-line);}
+#snc-page .snc-faq details{border-bottom:1px solid var(--snc-line);}
+#snc-page .snc-faq summary{
+  list-style:none;cursor:pointer;padding:24px 40px 24px 0;position:relative;
+  font-size:1.05rem;font-weight:600;letter-spacing:-.015em;
+}
+#snc-page .snc-faq summary::-webkit-details-marker{display:none;}
+#snc-page .snc-faq summary::after{
+  content:"";position:absolute;right:6px;top:50%;width:11px;height:11px;
+  border-right:2px solid var(--snc-muted);border-bottom:2px solid var(--snc-muted);
+  transform:translateY(-70%) rotate(45deg);transition:transform .2s ease,border-color .2s ease;
+}
+#snc-page .snc-faq details[open] summary::after{transform:translateY(-25%) rotate(225deg);border-color:var(--snc-accent);}
+#snc-page .snc-faq-a{padding:0 60px 26px 0;color:var(--snc-muted);font-size:1rem;max-width:74ch;}
+
+/* ---------- Schluss-CTA ---------- */
+#snc-page .snc-final{
+  position:relative;border-radius:26px;overflow:hidden;
+  border:1px solid var(--snc-line-strong);
+  background:linear-gradient(160deg,#171B12,var(--snc-bg-2) 62%);
+  padding:clamp(44px,7vw,76px) clamp(28px,5vw,64px);
+  text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px;
+}
+#snc-page .snc-final::before{
+  content:"";position:absolute;inset:auto -20% -70% -20%;height:130%;pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 100%,rgba(211,255,84,.16),transparent 70%);
+}
+#snc-page .snc-final > *{position:relative;}
+#snc-page .snc-final h2{max-width:18ch;}
+#snc-page .snc-final .snc-lead{max-width:52ch;}
+
+/* ---------- Footer ---------- */
+#snc-page .snc-footer{border-top:1px solid var(--snc-line);padding:44px 0 52px;margin-top:clamp(60px,8vw,100px);}
+#snc-page .snc-footer-in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:22px;align-items:center;}
+#snc-page .snc-footer-links{display:flex;flex-wrap:wrap;gap:24px;}
+#snc-page .snc-footer-links a,#snc-page .snc-footer small{font-size:.88rem;color:var(--snc-muted);}
+#snc-page .snc-footer-links a:hover{color:var(--snc-fg);}
+
+/* ---------- Responsive ---------- */
+@media (max-width:960px){
+  #snc-page .snc-grid--3{grid-template-columns:1fr 1fr;}
+  #snc-page .snc-steps{grid-template-columns:1fr 1fr;}
+  #snc-page .snc-step{border-bottom:1px solid var(--snc-line);}
+  #snc-page .snc-step:nth-child(2n){border-right:none;}
+  #snc-page .snc-step:nth-last-child(-n+2){border-bottom:none;}
+  #snc-page .snc-split{grid-template-columns:1fr;}
+  #snc-page .snc-nav{display:none;}
+  #snc-page .snc-logo small{display:none;}
+}
+@media (max-width:640px){
+  #snc-page .snc-grid--3,#snc-page .snc-grid--2{grid-template-columns:1fr;}
+  #snc-page .snc-steps{grid-template-columns:1fr;}
+  #snc-page .snc-step{border-right:none;}
+  #snc-page .snc-step:last-child{border-bottom:none;}
+  #snc-page .snc-fit{grid-template-columns:1fr;}
+  #snc-page .snc-fit-col + .snc-fit-col{border-left:none;border-top:1px solid var(--snc-line);}
+  #snc-page .snc-cta-row .snc-btn{width:100%;}
+  #snc-page .snc-cta-row{width:100%;}
+  #snc-page .snc-faq-a{padding-right:0;}
+  #snc-page .snc-header-in{gap:8px;}
+  #snc-page .snc-login{padding:10px 12px;}
+  #snc-page .snc-login span{display:none;}
+  #snc-page .snc-login svg{width:18px;height:18px;color:var(--snc-fg);}
+}
+@media (prefers-reduced-motion:reduce){
+  #snc-page *{transition:none!important;}
+}
+</style>
+</head>
+<body style="margin:0">
+
+<div id="snc-page">
+
+  <!-- ==================== HEADER ==================== -->
+  <header class="snc-header">
+    <div class="snc-wrap snc-header-in">
+      <a href="#top" class="snc-logo">
+        <span class="snc-logo-mark">SC</span>
+        <span><%= program.brand %><small>Affiliate Network</small></span>
+      </a>
+      <nav class="snc-nav">
+        <a href="#was-wir-sind">Wer wir sind</a>
+        <a href="#vorteile">Vorteile</a>
+        <a href="#ablauf">Ablauf</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="snc-header-actions">
+        <a class="snc-login" href="/login" aria-label="Login zum Creator-Dashboard">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4"/><path d="M8 13l3-3-3-3M11 10H3"/></svg>
+          <span>Login</span>
+        </a>
+        <a class="snc-btn snc-btn--primary snc-btn--sm" href="<%= applyUrl %>">Jetzt bewerben</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== HERO ==================== -->
+  <section class="snc-hero" id="top">
+    <div class="snc-wrap snc-hero-in">
+      <span class="snc-eyebrow">Affiliate-Programm für Creator</span>
+      <h1>Eine Bewerbung.<br>Zugang zu <span class="snc-accent">vielen Marken.</span></h1>
+      <p class="snc-lead">
+        <%= program.brand %> ist ein Affiliate-Netzwerk für die Fitnessbranche.
+        Wir sind Partner mehrerer Marken – du bewirbst dich einmal bei uns statt
+        einzeln bei jedem Unternehmen, bekommst deinen eigenen Rabattcode und siehst
+        in deinem Dashboard, was deine Reichweite tatsächlich bringt.
+      </p>
+      <div class="snc-cta-row">
+        <a class="snc-btn snc-btn--primary" href="<%= applyUrl %>">
+          Bewerbung starten
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>
+        </a>
+        <a class="snc-btn snc-btn--ghost" href="#ablauf">So läuft es ab</a>
+      </div>
+      <p class="snc-hero-note">Bewerbung in wenigen Minuten · keine Kosten · keine Mindestlaufzeit</p>
+    </div>
+  </section>
+
+  <!-- ==================== KATEGORIEN ==================== -->
+  <section class="snc-cats" aria-label="Partnerkategorien">
+    <div class="snc-cats-in">
+      <span class="snc-cats-label">Marken aus den Bereichen</span>
+      <span class="snc-cat">Supplements</span>
+      <span class="snc-cat">Apparel</span>
+      <span class="snc-cat">Equipment</span>
+      <span class="snc-cat">Recovery &amp; Health</span>
+    </div>
+  </section>
+
+  <!-- ==================== WER WIR SIND ==================== -->
+  <section class="snc-sec" id="was-wir-sind">
+    <div class="snc-wrap snc-split">
+      <div class="snc-sec-head" style="margin:0">
+        <span class="snc-kicker">Wer wir sind</span>
+        <h2>Wir sitzen zwischen Marken und Creatorn – und räumen den Aufwand weg.</h2>
+        <p class="snc-quote">
+          Gute Creator scheitern selten an der Reichweite. Sie scheitern daran,
+          zehn Marken hinterherzulaufen, deren Bedingungen zu vergleichen und am
+          Monatsende zu raten, was eigentlich verkauft wurde.
+        </p>
+      </div>
+      <div class="snc-body-copy">
+        <p>
+          <%= program.brand %> ist Affiliate-Partner mehrerer Marken in der
+          Fitnessbranche. Statt dass du dich einzeln bewirbst, Verträge liest und
+          mit jedem Ansprechpartner separat schreibst, <strong>läuft alles über einen
+          Zugang</strong>: eine Bewerbung, ein Ansprechpartner, ein Dashboard.
+        </p>
+        <p>
+          Für dich heißt das: du kümmerst dich um Content, wir um Marken, Codes,
+          Tracking und Abrechnung. Und wenn eine Marke nicht zu deiner Zielgruppe
+          passt, sagen wir dir das – <strong>ein Code, den niemand einlöst, hilft
+          keiner Seite.</strong>
+        </p>
+        <p>
+          Wir arbeiten bewusst mit einer begrenzten Zahl an Creatorn pro Marke.
+          Das hält Codes wertvoll und sorgt dafür, dass wir jede Zusammenarbeit
+          tatsächlich betreuen können statt sie nur zu verwalten.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VORTEILE ==================== -->
+  <section class="snc-sec" id="vorteile" style="padding-top:0">
+    <div class="snc-wrap">
+      <div class="snc-sec-head">
+        <span class="snc-kicker">Warum über uns</span>
+        <h2>Was du bekommst, wenn du aufgenommen wirst</h2>
+      </div>
+      <div class="snc-grid snc-grid--3">
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h10"/></svg></div>
+          <h3>Mehrere Marken, ein Zugang</h3>
+          <p>Du bewirbst dich einmal und bekommst Zugriff auf die Marken unseres Netzwerks, die zu deinem Content passen – ohne für jede Kooperation neu zu verhandeln.</p>
+        </article>
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r="1.6"/><circle cx="14.5" cy="14.5" r="1.6"/><rect x="3" y="3" width="18" height="18" rx="5"/></svg></div>
+          <h3>Dein persönlicher Link und Code</h3>
+          <p>Je Marke ein fertiger Link, den du direkt posten kannst, plus deinen Code zum Eintippen – beides läuft auf deinen Namen und ordnet jeden Verkauf sauber dir zu.</p>
+        </article>
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/></svg></div>
+          <h3>Dashboard statt Bauchgefühl</h3>
+          <p>Du siehst deine Verkäufe und deine Vergütung an einem Ort – nachvollziehbar, ohne am Monatsende nachfragen zu müssen, was eigentlich zusammengekommen ist.</p>
+        </article>
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 4v5c0 4.4-3 8-7 9-4-1-7-4.6-7-9V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></div>
+          <h3>Klare Bedingungen</h3>
+          <p>Vergütung, Auszahlung und Spielregeln stehen schriftlich fest, bevor du startest. Keine Exklusivität, keine Mindestlaufzeit, kein Kleingedrucktes im Nachhinein.</p>
+        </article>
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.8 19c.5-3.2 3-5 6.2-5s5.7 1.8 6.2 5"/><path d="M17 8.5h4.5M19.25 6.25v4.5"/></svg></div>
+          <h3>Ein Ansprechpartner</h3>
+          <p>Fragen zu Codes, Produkten oder Abrechnung gehen an eine Person – nicht an fünf Support-Postfächer, die sich gegenseitig verweisen.</p>
+        </article>
+
+        <article class="snc-card">
+          <div class="snc-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="3"/><path d="M8 21h8M12 18v3M7.5 11.5l2.5 2.5 6-6"/></svg></div>
+          <h3>Material, das du wirklich nutzt</h3>
+          <p>Produktinfos, Bildmaterial und Hinweise zu dem, was bei anderen Creatorn funktioniert hat – als Angebot, nicht als vorgeschriebenes Skript.</p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ABLAUF ==================== -->
+  <section class="snc-sec" id="ablauf" style="padding-top:0">
+    <div class="snc-wrap">
+      <div class="snc-sec-head">
+        <span class="snc-kicker">Ablauf</span>
+        <h2>Von der Bewerbung zum ersten Verkauf</h2>
+      </div>
+      <div class="snc-steps">
+        <div class="snc-step">
+          <span class="snc-step-no">01</span>
+          <h3>Bewerben</h3>
+          <p>Kurzes Formular: wer du bist, wo du Content machst und welche Themen deine Community interessieren.</p>
+        </div>
+        <div class="snc-step">
+          <span class="snc-step-no">02</span>
+          <h3>Prüfung</h3>
+          <p>Wir sehen uns dein Profil an und melden uns – mit einer Zusage oder einer ehrlichen Begründung.</p>
+        </div>
+        <div class="snc-step">
+          <span class="snc-step-no">03</span>
+          <h3>Link &amp; Zugang</h3>
+          <p>Du bekommst je freigegebener Marke deinen Link und Code, dazu den Zugang zum Dashboard.</p>
+        </div>
+        <div class="snc-step">
+          <span class="snc-step-no">04</span>
+          <h3>Posten &amp; verdienen</h3>
+          <p>Du teilst deinen Link in deinem Content. Verkäufe laufen im Dashboard auf, die Vergütung wird abgerechnet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PASST / PASST NICHT ==================== -->
+  <section class="snc-sec" id="fit" style="padding-top:0">
+    <div class="snc-wrap">
+      <div class="snc-sec-head">
+        <span class="snc-kicker">Für wen</span>
+        <h2>Ehrlich vorab: für wen das hier gedacht ist</h2>
+        <p class="snc-lead">Wir nehmen bewusst nicht jeden auf. Das ist kein Gatekeeping, sondern Mathematik – Codes verlieren an Wert, wenn sie überall gleichzeitig liegen.</p>
+      </div>
+      <div class="snc-fit">
+        <div class="snc-fit-col">
+          <div class="snc-fit-title"><span class="snc-accent">Passt gut</span></div>
+          <ul class="snc-fit-list">
+            <li><svg class="snc-tick" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>Du machst regelmäßig Content rund um Training, Ernährung oder Gesundheit.</span></li>
+            <li><svg class="snc-tick" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>Deine Community vertraut dir – Kommentare und Nachrichten sind dir wichtiger als reine Views.</span></li>
+            <li><svg class="snc-tick" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>Du empfiehlst nur, was du selbst benutzen würdest.</span></li>
+            <li><svg class="snc-tick" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg><span>Du willst langfristig aufbauen statt einmal posten und abhaken.</span></li>
+          </ul>
+        </div>
+        <div class="snc-fit-col">
+          <div class="snc-fit-title" style="color:var(--snc-muted)">Passt eher nicht</div>
+          <ul class="snc-fit-list">
+            <li><svg class="snc-cross" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg><span>Du suchst eine feste Bezahlung pro Post – wir vergüten leistungsbasiert.</span></li>
+            <li><svg class="snc-cross" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg><span>Dein Account hat viele Follower, aber kaum echte Interaktion.</span></li>
+            <li><svg class="snc-cross" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg><span>Du bewirbst parallel alles, was dir angeboten wird.</span></li>
+            <li><svg class="snc-cross" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8"/></svg><span>Werbung als solche zu kennzeichnen ist für dich Verhandlungssache.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FAQ ==================== -->
+  <section class="snc-sec" id="faq" style="padding-top:0">
+    <div class="snc-wrap">
+      <div class="snc-sec-head">
+        <span class="snc-kicker">FAQ</span>
+        <h2>Häufige Fragen</h2>
+      </div>
+      <div class="snc-faq">
+
+        <details open>
+          <summary>Brauche ich eine bestimmte Follower-Zahl?</summary>
+          <div class="snc-faq-a">Nein. Wir schauen uns an, wie deine Community mit dir interagiert und ob deine Themen zu unseren Marken passen. Ein kleiner, aktiver Account verkauft regelmäßig mehr als ein großer, stiller.</div>
+        </details>
+
+        <details>
+          <summary>Was kostet die Teilnahme?</summary>
+          <div class="snc-faq-a">Nichts. Es gibt keine Gebühren, keine Startpakete und keine Kaufpflicht. Du verdienst anteilig an den Verkäufen, die über deinen Link oder Code laufen.</div>
+        </details>
+
+        <details>
+          <summary>Muss ich exklusiv für euch arbeiten?</summary>
+          <div class="snc-faq-a">Nein. Du kannst weiterhin mit anderen Partnern zusammenarbeiten. Wir bitten dich nur, konkurrierende Produkte nicht im selben Beitrag gegeneinander auszuspielen.</div>
+        </details>
+
+        <details>
+          <summary>Wie werden meine Verkäufe erfasst?</summary>
+          <div class="snc-faq-a">Über deinen persönlichen Rabattcode. Er steckt schon in deinem Link, lässt sich aber genauso von Hand im Warenkorb eingeben. Jede Bestellung, bei der er eingelöst wird, wird dir zugeordnet und erscheint in deinem Dashboard.</div>
+        </details>
+
+        <details>
+          <summary>Wie und wann werde ich ausgezahlt?</summary>
+          <div class="snc-faq-a">Deine Auszahlungsdaten hinterlegst du selbst in deinem Profil. Vergütungshöhe und Auszahlungsrhythmus stehen in den Teilnahmebedingungen, die du vor dem Start bekommst – du startest also nie, ohne die Konditionen zu kennen.</div>
+        </details>
+
+        <details>
+          <summary>Wie lange dauert die Prüfung meiner Bewerbung?</summary>
+          <div class="snc-faq-a">Wir sehen uns jede Bewerbung persönlich an und melden uns in der Regel innerhalb weniger Werktage – auch dann, wenn es eine Absage ist.</div>
+        </details>
+
+        <details>
+          <summary>Muss ich meine Beiträge als Werbung kennzeichnen?</summary>
+          <div class="snc-faq-a">Ja. Beiträge mit deinem Link oder Code sind Werbung und müssen entsprechend gekennzeichnet werden. Das ist nicht verhandelbar – es schützt dich genauso wie uns.</div>
+        </details>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SCHLUSS-CTA ==================== -->
+  <section class="snc-sec" style="padding-top:0">
+    <div class="snc-wrap">
+      <div class="snc-final">
+        <span class="snc-eyebrow">Bewerbung offen</span>
+        <h2>Bereit, deine Reichweite messbar zu machen?</h2>
+        <p class="snc-lead">Ein Formular, wenige Minuten. Danach melden wir uns persönlich – mit einer klaren Antwort in die eine oder andere Richtung.</p>
+        <div class="snc-cta-row">
+          <a class="snc-btn snc-btn--primary" href="<%= applyUrl %>">
+            Jetzt als Creator bewerben
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 5l5 5-5 5"/></svg>
+          </a>
+          <a class="snc-btn snc-btn--ghost" href="mailto:<%= program.supportEmail %>">Erst eine Frage stellen</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="snc-footer">
+    <div class="snc-wrap snc-footer-in">
+      <div class="snc-logo">
+        <span class="snc-logo-mark">SC</span>
+        <span><%= program.brand %><small>Affiliate Network</small></span>
+      </div>
+      <nav class="snc-footer-links">
+        <a href="/impressum">Impressum</a>
+        <a href="/datenschutz">Datenschutz</a>
+        <a href="/teilnahmebedingungen">Teilnahmebedingungen</a>
+        <a href="/login">Creator-Login</a>
+        <a href="mailto:<%= program.supportEmail %>">Kontakt</a>
+      </nav>
+      <small>&copy; <%= new Date().getFullYear() %> <%= program.brand %></small>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

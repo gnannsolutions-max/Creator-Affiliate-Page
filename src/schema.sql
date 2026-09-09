@@ -185,3 +185,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail     TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- --- Zähler gegen automatisierte Versuche ------------------------------------
+--  Die Anwendung läuft serverlos: Zähler im Arbeitsspeicher einer Instanz
+--  wären wirkungslos, weil jede Anfrage auf einer anderen Instanz landen kann.
+--  Deshalb liegt der Zähler hier. Eine Zeile je Schlüssel (z. B. Formular+IP),
+--  festes Zeitfenster, alte Zeilen werden beim täglichen Lauf entfernt.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  bucket       TEXT        PRIMARY KEY,
+  hits         INTEGER     NOT NULL DEFAULT 0,
+  window_start TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);

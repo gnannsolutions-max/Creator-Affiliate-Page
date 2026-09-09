@@ -6,9 +6,10 @@ const config = require('../config');
 const db = require('../db');
 const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
-const { normalizeCode, codeIssue, codeTaken } = require('../lib/validate');
+const { normalizeCode, codeIssue, codeTaken, codeTakenInBrand } = require('../lib/validate');
 const rateLimit = require('../lib/ratelimit');
 const payout = require('../lib/payout');
+const brandsLib = require('../lib/brands');
 const { importSalesCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays } = require('../lib/dates');
@@ -87,7 +88,8 @@ router.get('/', async (req, res) => {
       [run.id]
     );
     top = await db.many(
-      `SELECT c.id, c.full_name, c.assigned_code, t.orders_30d, t.revenue_30d, t.commission_30d
+      `SELECT c.id, c.full_name, t.orders_30d, t.revenue_30d, t.commission_30d,
+              (SELECT COUNT(*) FROM creator_codes cc WHERE cc.creator_id = c.id) AS brand_count
          FROM snapshot_totals t JOIN creators c ON c.id = t.creator_id
         WHERE t.run_id = $1 AND t.revenue_30d > 0
         ORDER BY t.revenue_30d DESC LIMIT 10`,
@@ -171,6 +173,11 @@ async function renderCreator(req, res, extra = {}) {
   // Überweisung nicht auslösen. In der Creator-Liste stehen sie bewusst nicht.
   const bank = await payout.load(c.id);
 
+  // Marken und die bereits vergebenen Codes – daraus baut die Seite das
+  // Zuweisungsformular und die Liste der Links.
+  const [brandList, codes] = await Promise.all([brandsLib.all(), brandsLib.codesFor(c.id)]);
+  const codeByBrand = Object.fromEntries(codes.map((row) => [String(row.brand_id), row]));
+
   return res.render('admin/creator', {
     title: c.full_name,
     nav: 'admin-creators',
@@ -178,6 +185,9 @@ async function renderCreator(req, res, extra = {}) {
     run,
     totals,
     bank,
+    brandList,
+    codes,
+    codeByBrand,
     formatIban: payout.formatIban,
     taxStatusLabel: payout.TAX_STATUS,
     defaultPeriod: monthKey(addDays(localDate(), -15)),
@@ -191,37 +201,124 @@ async function renderCreator(req, res, extra = {}) {
 
 router.get('/creators/:id', (req, res) => renderCreator(req, res));
 
+/**
+ * Liest die Marken-Zuweisungen aus dem Formular.
+ *
+ * Je Marke gibt es drei Felder: ob sie vergeben wird, mit welchem Code und zu
+ * welchen Konditionen. Geprüft wird der Code gegen die Regeln UND gegen die
+ * bereits vergebenen Codes derselben Marke – marken­übergreifend darf sich ein
+ * Code wiederholen, weil die Shops getrennt sind.
+ */
+async function readBrandAssignments(creatorId, brandList, rawBody) {
+  // Ohne Formularinhalt liefert Express kein body-Objekt. Das ist kein Absturz
+  // wert – es heißt schlicht: keine Marke angehakt.
+  const body = rawBody || {};
+  const wanted = [];
+  const errors = [];
+
+  for (const brand of brandList) {
+    if (body[`brand_${brand.id}_on`] !== '1') continue;
+
+    const code = normalizeCode(body[`brand_${brand.id}_code`]);
+    const issue =
+      codeIssue(code) ||
+      ((await codeTakenInBrand(brand.id, code, creatorId))
+        ? `Der Code ${code} ist bei ${brand.name} schon vergeben.`
+        : null);
+    if (issue) {
+      errors.push(`${brand.name}: ${issue}`);
+      continue;
+    }
+
+    const rate = Number(String(body[`brand_${brand.id}_rate`]).replace(',', '.'));
+    const discount = Number(String(body[`brand_${brand.id}_discount`]).replace(',', '.'));
+    if (!Number.isFinite(rate) || rate < 0 || rate > 90) {
+      errors.push(`${brand.name}: Provision muss zwischen 0 und 90 % liegen.`);
+      continue;
+    }
+
+    wanted.push({
+      brandId: brand.id,
+      brandName: brand.name,
+      code,
+      rate,
+      discount: Number.isFinite(discount) ? discount : brand.default_customer_discount,
+      link: brandsLib.buildLink(brand.link_template, code),
+    });
+  }
+
+  return { wanted, errors };
+}
+
+/** Schreibt die Zuweisungen und entfernt Marken, die nicht mehr angehakt sind. */
+async function saveBrandAssignments(creatorId, wanted) {
+  await db.tx(async (t) => {
+    for (const w of wanted) {
+      await t.run(
+        `INSERT INTO creator_codes (creator_id, brand_id, code, code_norm, commission_rate, customer_discount)
+         VALUES ($1, $2, $3, $3, $4, $5)
+         ON CONFLICT (creator_id, brand_id) DO UPDATE SET
+           code = EXCLUDED.code,
+           code_norm = EXCLUDED.code_norm,
+           commission_rate = EXCLUDED.commission_rate,
+           customer_discount = EXCLUDED.customer_discount`,
+        [creatorId, w.brandId, w.code, w.rate, w.discount]
+      );
+    }
+
+    const keep = wanted.map((w) => Number(w.brandId));
+    if (keep.length) {
+      await t.run('DELETE FROM creator_codes WHERE creator_id = $1 AND brand_id <> ALL($2::bigint[])', [
+        creatorId,
+        keep,
+      ]);
+    } else {
+      await t.run('DELETE FROM creator_codes WHERE creator_id = $1', [creatorId]);
+    }
+  });
+}
+
 router.post('/creators/:id/approve', async (req, res) => {
   const id = req.params.id;
   const c = await db.one('SELECT * FROM creators WHERE id = $1', [id]);
   if (!c) return res.redirect('/admin/creators');
 
-  const code = normalizeCode(req.body.code);
-  const issue = codeIssue(code) || ((await codeTaken(code, id)) ? 'Dieser Code ist bereits vergeben.' : null);
-  if (issue) return renderCreator(req, res, { error: issue });
-
-  const rate = Number(req.body.commission_rate);
-  const discount = Number(req.body.customer_discount);
-  if (!Number.isFinite(rate) || rate < 0 || rate > 90) {
-    return renderCreator(req, res, { error: 'Provision muss zwischen 0 und 90 % liegen.' });
+  const brandList = await brandsLib.all({ onlyActive: true });
+  if (!brandList.length) {
+    return renderCreator(req, res, {
+      error: 'Es gibt noch keine aktive Marke. Lege zuerst unter „Marken“ mindestens eine an.',
+    });
   }
+
+  const { wanted, errors } = await readBrandAssignments(id, brandList, req.body);
+  if (errors.length) return renderCreator(req, res, { error: errors.join(' ') });
+  if (!wanted.length) {
+    return renderCreator(req, res, {
+      error: 'Bitte hake mindestens eine Marke an – ohne Marke gibt es keinen Link.',
+    });
+  }
+
+  await saveBrandAssignments(id, wanted);
 
   const updated = await db.one(
     `UPDATE creators
-        SET assigned_code = $1, assigned_code_norm = $1, status = 'approved',
-            commission_rate = $2, customer_discount = $3,
-            reviewed_at = now(), reviewed_by = $4, decision_reason = NULL
-      WHERE id = $5
+        SET status = 'approved', reviewed_at = now(), reviewed_by = $1, decision_reason = NULL
+      WHERE id = $2
       RETURNING *`,
-    [code, rate, Number.isFinite(discount) ? discount : config.program.defaultCustomerDiscount, config.adminName, id]
+    [config.adminName, id]
   );
 
-  await db.log(config.adminName, 'creator.approved', updated.email, `Code ${code}, ${rate} %`);
+  await db.log(
+    config.adminName,
+    'creator.approved',
+    updated.email,
+    wanted.map((w) => `${w.brandName}: ${w.code} (${w.rate} %)`).join(', ')
+  );
 
   const token = await auth.createLoginToken(id);
   const url = `${config.baseUrl}/login/${token}`;
   const result = await mailer
-    .send({ to: updated.email, ...mailer.templates.approved(updated, url) })
+    .send({ to: updated.email, ...mailer.templates.approved(updated, url, wanted) })
     .catch((err) => ({ sent: false, error: err.message }));
 
   // Ohne SMTP bleibt die Seite stehen und zeigt den Link zum Kopieren an,
@@ -229,12 +326,36 @@ router.post('/creators/:id/approve', async (req, res) => {
   if (!result.sent) {
     return renderCreator(req, res, {
       loginLink: url,
-      flash: `Freigegeben. Code ${code} ist aktiv.`,
+      flash: `Freigegeben für ${wanted.length} Marke(n).`,
     });
   }
 
   res.redirect(
-    `/admin/creators/${id}?ok=${encodeURIComponent(`Freigegeben. Code ${code} ist aktiv, E-Mail ist raus.`)}`
+    `/admin/creators/${id}?ok=${encodeURIComponent(
+      `Freigegeben für ${wanted.length} Marke(n), E-Mail mit den Links ist raus.`
+    )}`
+  );
+});
+
+/** Marken und Konditionen eines bereits freigegebenen Creators ändern. */
+router.post('/creators/:id/codes', async (req, res) => {
+  const id = req.params.id;
+  const brandList = await brandsLib.all();
+  const { wanted, errors } = await readBrandAssignments(id, brandList, req.body);
+  if (errors.length) return renderCreator(req, res, { error: errors.join(' ') });
+
+  await saveBrandAssignments(id, wanted);
+  await db.log(
+    config.adminName,
+    'creator.codes.updated',
+    String(id),
+    wanted.map((w) => `${w.brandName}: ${w.code}`).join(', ') || 'alle entfernt'
+  );
+
+  res.redirect(
+    `/admin/creators/${id}?ok=${encodeURIComponent(
+      'Marken gespeichert. Die Zahlen ändern sich beim nächsten Lauf.'
+    )}`
   );
 });
 
@@ -263,33 +384,95 @@ router.post('/creators/:id/reopen', async (req, res) => {
 
 router.post('/creators/:id/update', async (req, res) => {
   const id = req.params.id;
-  const code = normalizeCode(req.body.code);
-  const issue = codeIssue(code) || ((await codeTaken(code, id)) ? 'Dieser Code ist bereits vergeben.' : null);
-  if (issue) return renderCreator(req, res, { error: issue });
-
-  const rate = Number(req.body.commission_rate);
-  const discount = Number(req.body.customer_discount);
   const status = ['approved', 'paused'].includes(req.body.status) ? req.body.status : 'approved';
 
   await db.run(
-    `UPDATE creators
-        SET assigned_code = $1, assigned_code_norm = $1, commission_rate = $2,
-            customer_discount = $3, status = $4, note_internal = $5
-      WHERE id = $6`,
-    [
-      code,
-      Number.isFinite(rate) ? rate : config.program.defaultCommissionRate,
-      Number.isFinite(discount) ? discount : config.program.defaultCustomerDiscount,
-      status,
-      String(req.body.note_internal || '').slice(0, 2000) || null,
-      id,
-    ]
+    `UPDATE creators SET status = $1, note_internal = $2 WHERE id = $3`,
+    [status, String(req.body.note_internal || '').slice(0, 2000) || null, id]
   );
 
-  await db.log(config.adminName, 'creator.updated', String(id), `Code ${code}, ${rate} %, ${status}`);
+  await db.log(config.adminName, 'creator.updated', String(id), `Status ${status}`);
   res.redirect(
     `/admin/creators/${id}?ok=${encodeURIComponent('Gespeichert. Wirkt im Creator-Dashboard nach dem nächsten Lauf.')}`
   );
+});
+
+// --- Marken ------------------------------------------------------------------
+
+async function renderBrands(req, res, extra = {}) {
+  return res.render('admin/brands', {
+    title: 'Marken',
+    nav: 'admin-brands',
+    rows: await brandsLib.all(),
+    values: {},
+    errors: {},
+    editing: null,
+    placeholder: brandsLib.PLACEHOLDER,
+    flash: req.query.ok || null,
+    ...extra,
+  });
+}
+
+router.get('/brands', (req, res) => renderBrands(req, res));
+
+router.get('/brands/:id', async (req, res) => {
+  const brand = await brandsLib.byId(req.params.id);
+  if (!brand) return res.redirect('/admin/brands');
+  return renderBrands(req, res, { editing: brand, values: brand });
+});
+
+router.post('/brands', async (req, res) => {
+  const editingId = req.body.id ? Number(req.body.id) : null;
+  const { values, errors } = brandsLib.validateBrand(req.body);
+
+  if (!errors.slug && (await brandsLib.slugTaken(values.slug, editingId))) {
+    errors.slug = 'Dieses Kürzel ist schon vergeben.';
+  }
+
+  if (Object.keys(errors).length) {
+    const editing = editingId ? await brandsLib.byId(editingId) : null;
+    return res.status(400).render('admin/brands', {
+      title: 'Marken',
+      nav: 'admin-brands',
+      rows: await brandsLib.all(),
+      values: { ...values, id: editingId },
+      errors,
+      editing,
+      placeholder: brandsLib.PLACEHOLDER,
+      flash: null,
+    });
+  }
+
+  const params = [
+    values.name,
+    values.slug,
+    values.shop_url,
+    values.link_template,
+    values.default_commission_rate,
+    values.default_customer_discount,
+    values.note || null,
+    values.active,
+  ];
+
+  if (editingId) {
+    await db.run(
+      `UPDATE brands SET name=$1, slug=$2, shop_url=$3, link_template=$4,
+              default_commission_rate=$5, default_customer_discount=$6, note=$7, active=$8
+        WHERE id=$9`,
+      [...params, editingId]
+    );
+    await db.log(config.adminName, 'brand.updated', values.slug, values.name);
+  } else {
+    await db.run(
+      `INSERT INTO brands (name, slug, shop_url, link_template,
+              default_commission_rate, default_customer_discount, note, active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      params
+    );
+    await db.log(config.adminName, 'brand.created', values.slug, values.name);
+  }
+
+  res.redirect(`/admin/brands?ok=${encodeURIComponent(`Marke „${values.name}“ gespeichert.`)}`);
 });
 
 /**
@@ -321,6 +504,10 @@ router.get('/mails', async (req, res) => {
 
 // --- Import ------------------------------------------------------------------
 
+const IMPORT_LIST = `SELECT i.*, b.name AS brand_name
+       FROM imports i LEFT JOIN brands b ON b.id = i.brand_id
+      ORDER BY i.id DESC LIMIT 15`;
+
 router.get('/import', async (req, res) => {
   res.render('admin/import', {
     title: 'Umsätze importieren',
@@ -328,7 +515,9 @@ router.get('/import', async (req, res) => {
     result: null,
     flash: req.query.ok || null,
     refreshTime: config.refresh.label,
-    imports: await db.many('SELECT * FROM imports ORDER BY id DESC LIMIT 15'),
+    brandList: await brandsLib.all({ onlyActive: true }),
+    selectedBrand: null,
+    imports: await db.many(IMPORT_LIST),
   });
 });
 
@@ -346,17 +535,41 @@ router.get('/import/vorlage.csv', (req, res) => {
 });
 
 router.post('/import', upload.single('file'), async (req, res) => {
+  const brandList = await brandsLib.all({ onlyActive: true });
+  const brand = await brandsLib.byId(req.body && req.body.brand_id);
+
+  // Ohne Marke wüsste der Import nicht, wessen Codes gelten und gegen welche
+  // Bestellnummern er abgleichen muss. Deshalb hier kein stiller Rückfall.
+  if (!brand) {
+    return res.status(400).render('admin/import', {
+      title: 'Umsätze importieren',
+      nav: 'admin-import',
+      result: { ok: false, problems: ['Bitte wähle die Marke aus, zu der diese Datei gehört.'] },
+      flash: null,
+      refreshTime: config.refresh.label,
+      brandList,
+      selectedBrand: null,
+      imports: await db.many(IMPORT_LIST),
+    });
+  }
   if (!req.file) return res.redirect('/admin/import');
+
   const text = req.file.buffer.toString('utf8');
-  const result = await importSalesCsv(text, { filename: req.file.originalname, actor: config.adminName });
+  const result = await importSalesCsv(text, {
+    brandId: brand.id,
+    filename: req.file.originalname,
+    actor: config.adminName,
+  });
 
   res.render('admin/import', {
     title: 'Umsätze importieren',
     nav: 'admin-import',
-    result,
+    result: { ...result, brandName: brand.name },
     flash: null,
     refreshTime: config.refresh.label,
-    imports: await db.many('SELECT * FROM imports ORDER BY id DESC LIMIT 15'),
+    brandList,
+    selectedBrand: brand.id,
+    imports: await db.many(IMPORT_LIST),
   });
 });
 
@@ -442,7 +655,9 @@ router.get('/payouts', async (req, res) => {
   const run = await latestRun();
   const open = run
     ? await db.many(
-        `SELECT c.id, c.full_name, c.assigned_code, t.commission_total, t.commission_paid, t.commission_open
+        `SELECT c.id, c.full_name, t.commission_total, t.commission_paid, t.commission_open,
+                (SELECT string_agg(cc.code, ', ' ORDER BY cc.code)
+                   FROM creator_codes cc WHERE cc.creator_id = c.id) AS codes
            FROM snapshot_totals t JOIN creators c ON c.id = t.creator_id
           WHERE t.run_id = $1 AND t.commission_open > 0.005
           ORDER BY t.commission_open DESC`,

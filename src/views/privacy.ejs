@@ -2,29 +2,248 @@
 
 <main class="wrap wrap--narrow">
   <div class="page-head">
-    <h1>Datenschutzhinweise</h1>
-    <p>Creator-Programm von <%= program.brand %></p>
+    <h1>Datenschutzerklärung</h1>
+    <p>Creator-Programm von <%= program.brand %> · Stand <%= formatDateDe(company.privacyVersion) %></p>
   </div>
 
-  <div class="note note--warn">
-    <p><strong>Platzhalter.</strong> Vor dem Livegang durch eine vollständige, auf euren Verantwortlichen und eure Auftragsverarbeiter zugeschnittene Datenschutzerklärung ersetzen.</p>
+  <% if (!company.isComplete) { %>
+    <div class="note note--danger">
+      <p>
+        <strong>Diese Erklärung ist noch nicht vollständig.</strong> Es fehlen die Angaben zum Verantwortlichen
+        (Firma, Anschrift, Kontakt). Sie werden über die Umgebungsvariablen <span class="mono">COMPANY_NAME</span>,
+        <span class="mono">COMPANY_STREET</span>, <span class="mono">COMPANY_CITY</span> und
+        <span class="mono">COMPANY_EMAIL</span> gesetzt. Ohne sie darf die Seite nicht öffentlich gehen.
+      </p>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <h2>1. Wer für die Verarbeitung verantwortlich ist</h2>
+    <% if (company.isComplete) { %>
+      <p class="small">
+        <%= company.name %><br>
+        <%= company.street %><br>
+        <%= company.city %><br>
+        <%= company.country %>
+        <% if (company.representative) { %><br>Vertreten durch: <%= company.representative %><% } %>
+      </p>
+      <p class="small">
+        E-Mail: <a href="mailto:<%= company.contactEmail %>"><%= company.contactEmail %></a>
+        <% if (company.phone) { %><br>Telefon: <%= company.phone %><% } %>
+      </p>
+      <% if (company.dpo) { %>
+        <p class="small">Datenschutzbeauftragte/r: <%= company.dpo %></p>
+      <% } %>
+    <% } else { %>
+      <p class="small muted">[Firma, Rechtsform, Anschrift und Kontakt sind noch nicht hinterlegt.]</p>
+    <% } %>
+
+    <h2 style="margin-top:24px">2. Worum es hier geht</h2>
+    <p class="small">
+      Dieses Portal ist kein Shop. Es ist der Arbeitsbereich für Creator, die für <%= program.brand %> werben:
+      Bewerbung, Freigabe eines persönlichen Rabattcodes, tägliche Übersicht über die damit erzielten Bestellungen
+      und die Abwicklung der Provision. Verarbeitet werden deshalb fast ausschließlich Daten von Creatorn, nicht von
+      Käufern.
+    </p>
+    <p class="small">
+      Wir setzen keine Analyse- oder Werbedienste ein, binden keine externen Schriften, Karten oder Skripte ein und
+      verfolgen niemanden über Seiten hinweg. Beim Aufruf dieses Portals stellt dein Browser deshalb keine
+      Verbindung zu Dritten her. Aus demselben Grund gibt es hier kein Cookie-Banner: Es gibt nichts zuzustimmen.
+    </p>
   </div>
 
   <div class="card">
-    <h2>Welche Daten wir verarbeiten</h2>
-    <p class="small">Name, E-Mail-Adresse, Wunsch-Code, Instagram-Name sowie freiwillig TikTok- und YouTube-Namen. Nach Freigabe zusätzlich: der vergebene Code, Provisionssatz sowie die über den Code erzielten Bestellungen (Bestellnummer, Datum, Betrag, Status).</p>
+    <h2>3. Aufruf der Seiten</h2>
+    <p class="small">
+      Beim Abruf werden technisch notwendige Verbindungsdaten verarbeitet – IP-Adresse, Zeitpunkt, aufgerufene
+      Adresse, Statuscode, Browserkennung. Sie fallen beim Betrieb jedes Webservers an und dienen der Auslieferung,
+      der Stabilität und der Abwehr von Angriffen.
+    </p>
+    <p class="small">
+      Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO. Berechtigtes Interesse ist der sichere und störungsfreie Betrieb.
+      Die Protokolle entstehen bei unserem Hoster (Abschnitt 10) und werden dort nach dessen Fristen gelöscht.
+    </p>
 
-    <h2 style="margin-top:20px">Wozu und auf welcher Grundlage</h2>
-    <p class="small">Die Verarbeitung erfolgt zur Durchführung des Creator-Programms (Art. 6 Abs. 1 lit. b DSGVO) sowie zur Erfüllung handels- und steuerrechtlicher Aufbewahrungspflichten (Art. 6 Abs. 1 lit. c DSGVO). Die dokumentierte Zustimmung zu den Werberegeln dient dem Nachweis der Einhaltung wettbewerbsrechtlicher Pflichten (Art. 6 Abs. 1 lit. f DSGVO).</p>
+    <h2 style="margin-top:24px">4. Cookies</h2>
+    <p class="small">Es werden ausschließlich zwei technisch notwendige Cookies gesetzt, und nur nach einer Anmeldung:</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Zweck</th><th>Dauer</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">ca_session</td><td>hält die Anmeldung eines Creators aufrecht</td><td>30 Tage</td></tr>
+          <tr><td class="mono">ca_admin</td><td>hält die Anmeldung im internen Bereich aufrecht</td><td>12 Stunden</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">
+      Beide sind signiert, für Skripte im Browser nicht lesbar (<span class="mono">httpOnly</span>) und werden nur
+      über verschlüsselte Verbindungen übertragen. Sie enthalten keine Profildaten, sondern nur die Kennung der
+      Sitzung. Rechtsgrundlage: § 25 Abs. 2 Nr. 2 TDDDG – für die von dir ausdrücklich gewünschte Anmeldung
+      unbedingt erforderlich, deshalb einwilligungsfrei.
+    </p>
+  </div>
 
-    <h2 style="margin-top:20px">Wie lange</h2>
-    <p class="small">Bewerbungsdaten abgelehnter Bewerbungen werden nach sechs Monaten gelöscht. Daten aktiver Creator werden für die Dauer der Zusammenarbeit gespeichert, abrechnungsrelevante Daten darüber hinaus für die gesetzlichen Aufbewahrungsfristen.</p>
+  <div class="card">
+    <h2>5. Bewerbung als Creator</h2>
+    <p class="small">
+      Beim Absenden des Bewerbungsformulars verarbeiten wir: Name, E-Mail-Adresse, Instagram-Name, freiwillig
+      TikTok- und YouTube-Name, deinen Wunsch-Code sowie – falls du über einen gekennzeichneten Link gekommen bist –
+      die Quelle. Zusätzlich speichern wir Zeitpunkt und IP-Adresse deiner Zustimmung zu den Teilnahme- und
+      Werberegeln sowie die Fassung, der du zugestimmt hast.
+    </p>
+    <p class="small">
+      Zweck: Prüfung und Durchführung der Zusammenarbeit. Die Dokumentation der Zustimmung brauchen wir als
+      Nachweis, dass die Werberegeln vereinbart wurden – dafür haften wir als Auftraggeber mit
+      (§ 8 Abs. 2 UWG).
+    </p>
+    <p class="small">
+      Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen und Durchführung des Vertrags), für
+      Zeitpunkt und IP-Adresse der Zustimmung Art. 6 Abs. 1 lit. f DSGVO (Nachweisführung).
+    </p>
+    <p class="small">
+      Die Angabe von Name, E-Mail und Instagram-Name ist erforderlich; ohne sie können wir die Bewerbung nicht
+      bearbeiten. TikTok und YouTube sind freiwillig.
+    </p>
 
-    <h2 style="margin-top:20px">Deine Rechte</h2>
-    <p class="small">Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und Widerspruch. Außerdem besteht ein Beschwerderecht bei einer Aufsichtsbehörde. Kontakt: <a href="mailto:<%= program.supportEmail %>"><%= program.supportEmail %></a>.</p>
+    <h2 style="margin-top:24px">6. Anmeldung ohne Passwort</h2>
+    <p class="small">
+      Die Anmeldung läuft über einen Link, den wir an deine E-Mail-Adresse schicken. Wir speichern dazu keinen
+      Klartext-Link, sondern nur dessen Prüfwert, das Ablaufdatum und den Zeitpunkt der Verwendung. Der Link gilt
+      30 Minuten und lässt sich nur einmal einlösen. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.
+    </p>
 
-    <h2 style="margin-top:20px">Keine Weitergabe an Dritte</h2>
-    <p class="small">Eine Weitergabe erfolgt nur, soweit sie zur Abwicklung erforderlich ist (z. B. Zahlungsabwicklung, Steuerberatung) oder gesetzlich vorgeschrieben ist.</p>
+    <h2 style="margin-top:24px">7. Umsätze im Dashboard</h2>
+    <p class="small">
+      Wird dein Code bei einer Bestellung eingelöst, übernehmen wir aus dem Shop die Bestellnummer, das
+      Bestelldatum, den Betrag und den Bestellstatus. Namen, Anschriften oder sonstige Angaben der Käufer werden
+      dabei nicht in dieses Portal übertragen. Aus diesen Zeilen berechnen wir deine Provision und den Stand, den
+      du im Dashboard siehst. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO.
+    </p>
+
+    <h2 style="margin-top:24px">8. Auszahlungsdaten</h2>
+    <p class="small">
+      Für die Auszahlung verarbeiten wir: Name des Kontoinhabers, je nach gewähltem Weg IBAN und gegebenenfalls BIC
+      oder die Adresse deines PayPal-Kontos, deine Anschrift, deinen steuerlichen Status und – bei Regelbesteuerung –
+      deine USt-IdNr. oder Steuernummer.
+    </p>
+    <p class="small">
+      Zweck: Auszahlung der Provision und Erstellung der zugehörigen Abrechnung. Anschrift und Steuerangaben sind
+      Pflichtangaben auf einer Gutschrift (§ 14 UStG); ohne sie ist eine ordnungsgemäße Abrechnung nicht möglich.
+    </p>
+    <p class="small">
+      Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO für die Zahlung, Art. 6 Abs. 1 lit. c DSGVO für die steuer- und
+      handelsrechtlichen Pflichten. Diese Daten liegen getrennt von den übrigen Creator-Daten und werden nur dort
+      geladen, wo sie tatsächlich gebraucht werden. In internen Listen erscheinen sie nicht.
+    </p>
+
+    <h2 style="margin-top:24px">9. Nachrichten, Protokoll und Missbrauchsschutz</h2>
+    <p class="small">
+      <strong>Ausgangspostfach.</strong> Jede an dich erzeugte Nachricht wird mit Empfänger, Betreff und Inhalt
+      gespeichert, damit nachvollziehbar bleibt, was wann verschickt wurde, und damit ein Link auch dann zugestellt
+      werden kann, wenn der Mailversand ausfällt.
+    </p>
+    <p class="small">
+      <strong>Änderungsprotokoll.</strong> Wesentliche Vorgänge – Bewerbung eingegangen, Code freigegeben,
+      Konditionen geändert, Auszahlung erfasst – werden mit Zeitpunkt und der handelnden Stelle festgehalten.
+      Kontodaten stehen dort nicht; protokolliert wird nur, <em>dass</em> sich etwas geändert hat.
+    </p>
+    <p class="small">
+      <strong>Missbrauchsschutz.</strong> Um automatisierte Massenanfragen und das Durchprobieren von Passwörtern zu
+      unterbinden, zählen wir Anfragen je IP-Adresse und – beim Anfordern eines Login-Links – je E-Mail-Adresse.
+      Diese Zähler werden spätestens nach 24 Stunden gelöscht.
+    </p>
+    <p class="small">Rechtsgrundlage jeweils: Art. 6 Abs. 1 lit. f DSGVO (Nachvollziehbarkeit und Sicherheit des Betriebs).</p>
+  </div>
+
+  <div class="card">
+    <h2>10. Wer die Daten außerdem verarbeitet</h2>
+    <p class="small">
+      Wir geben keine Daten zu Werbezwecken weiter und verkaufen keine. Für den Betrieb setzen wir Dienstleister
+      ein, die ausschließlich nach unserer Weisung tätig sind (Auftragsverarbeitung nach Art. 28 DSGVO):
+    </p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Dienst</th><th>Wofür</th></tr></thead>
+        <tbody>
+          <tr><td>Netlify (Netlify, Inc., USA)</td><td>Betrieb der Website, Ausführung der Anwendung und Datenbank</td></tr>
+          <tr><td>Brevo (Sendinblue SAS, Frankreich)</td><td>Versand der E-Mails an Creator</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">
+      Darüber hinaus erhalten unsere Steuerberatung und – bei einer Auszahlung – unser Kreditinstitut die dafür
+      erforderlichen Angaben. An Behörden geben wir Daten nur heraus, soweit wir gesetzlich dazu verpflichtet sind.
+    </p>
+
+    <h2 style="margin-top:24px">11. Verarbeitung außerhalb der EU</h2>
+    <p class="small">
+      Die Anwendung wird bei Netlify in der Region <strong>N. Virginia (USA)</strong> ausgeführt. Damit werden die in
+      diesem Portal verarbeiteten Daten – einschließlich der Auszahlungsdaten – in einem Drittland verarbeitet, für
+      das kein dem europäischen gleichwertiges Datenschutzniveau von vornherein feststeht. Die Übermittlung stützt
+      sich auf die mit dem Anbieter geschlossene Vereinbarung zur Auftragsverarbeitung einschließlich der
+      Standardvertragsklauseln der EU-Kommission (Art. 46 Abs. 2 lit. c DSGVO).
+    </p>
+    <p class="small">
+      Trotz dieser Garantien lässt sich nicht ausschließen, dass US-Behörden auf Daten zugreifen. Wenn du das nicht
+      möchtest, teile uns das mit – wir rechnen dann außerhalb des Portals mit dir ab.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>12. Wie lange wir speichern</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Daten</th><th>Dauer</th></tr></thead>
+        <tbody>
+          <tr><td>Zähler für den Missbrauchsschutz (IP, E-Mail)</td><td>höchstens 24 Stunden</td></tr>
+          <tr><td>Login-Links</td><td>30 Minuten gültig, Reste nach 7 Tagen entfernt</td></tr>
+          <tr><td>Tagesstände des Dashboards</td><td>die letzten 60 Läufe</td></tr>
+          <tr><td>Abgelehnte Bewerbungen</td><td>6 Monate, danach auf Anforderung sofort</td></tr>
+          <tr><td>Daten aktiver Creator</td><td>für die Dauer der Zusammenarbeit</td></tr>
+          <tr><td>Auszahlungs- und Abrechnungsdaten</td><td>6 bzw. 10 Jahre (§ 257 HGB, § 147 AO)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small">
+      Endet die Zusammenarbeit, löschen wir deine Daten, sobald sie nicht mehr gebraucht werden. Was gesetzlichen
+      Aufbewahrungsfristen unterliegt – im Wesentlichen alles, was in die Buchhaltung eingeht – wird bis zum Ablauf
+      dieser Fristen gesperrt statt gelöscht und danach entfernt.
+    </p>
+
+    <h2 style="margin-top:24px">13. Keine automatisierten Entscheidungen</h2>
+    <p class="small">
+      Über deine Bewerbung entscheidet ein Mensch. Es findet keine automatisierte Entscheidungsfindung und kein
+      Profiling im Sinne des Art. 22 DSGVO statt.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>14. Deine Rechte</h2>
+    <p class="small">Du hast uns gegenüber jederzeit das Recht auf</p>
+    <ul class="small">
+      <li>Auskunft über die zu dir gespeicherten Daten (Art. 15 DSGVO),</li>
+      <li>Berichtigung unrichtiger Daten (Art. 16 DSGVO),</li>
+      <li>Löschung (Art. 17 DSGVO),</li>
+      <li>Einschränkung der Verarbeitung (Art. 18 DSGVO),</li>
+      <li>Datenübertragbarkeit (Art. 20 DSGVO) und</li>
+      <li>Widerspruch gegen Verarbeitungen, die auf einem berechtigten Interesse beruhen (Art. 21 DSGVO).</li>
+    </ul>
+    <p class="small">
+      Deine Auszahlungsdaten kannst du außerdem selbst jederzeit im Bereich „Auszahlung“ ändern. Für alles Weitere
+      genügt eine formlose Nachricht an
+      <a href="mailto:<%= company.contactEmail %>"><%= company.contactEmail %></a>.
+    </p>
+    <p class="small">
+      Unabhängig davon kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO).
+      <% if (company.authority) { %>Für uns zuständig ist: <%= company.authority %>.<% } else { %>Zuständig ist die
+      Behörde am Sitz des Verantwortlichen oder an deinem Wohnort.<% } %>
+    </p>
+
+    <h2 style="margin-top:24px">15. Änderungen</h2>
+    <p class="small">
+      Ändert sich, wie das Portal arbeitet, passen wir diese Erklärung an. Maßgeblich ist die hier veröffentlichte
+      Fassung; ihr Stand steht oben. Bei wesentlichen Änderungen informieren wir aktive Creator per E-Mail.
+    </p>
   </div>
 </main>
 

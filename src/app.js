@@ -61,7 +61,12 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
+      // style-src erlaubt zusätzlich Stile im Dokument. Grund: Die Views setzen
+      // an vielen Stellen kleine Anpassungen als style-Attribut, und die wurden
+      // vorher stillschweigend verworfen – die Seiten sahen live anders aus als
+      // lokal. Ein echtes Risiko entsteht dadurch nicht, solange script-src
+      // ohnehin 'unsafe-inline' erlaubt; die Landingpage kommt bewusst ohne aus.
+      "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
     );
     next();
   });

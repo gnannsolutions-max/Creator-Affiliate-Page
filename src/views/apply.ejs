@@ -6,7 +6,11 @@
     <p>Du bekommst deinen eigenen Rabattcode, deine Community bekommt <%= program.defaultCustomerDiscount %> % Rabatt, und du siehst jeden Tag, was dein Code umgesetzt hat.</p>
   </div>
 
-  <% if (Object.keys(errors).length) { %>
+  <% if (errors.form) { %>
+    <div class="note note--danger">
+      <p><%= errors.form %></p>
+    </div>
+  <% } else if (Object.keys(errors).length) { %>
     <div class="note note--danger">
       <p><strong>Da fehlt noch etwas.</strong> Bitte sieh dir die markierten Felder an.</p>
     </div>

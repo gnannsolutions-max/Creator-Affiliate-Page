@@ -332,6 +332,24 @@ textarea { min-height: 80px; resize: vertical; }
 .checkline input { margin-top: 3px; flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--series-1); }
 .checkline label { font-size: 14px; font-weight: 400; line-height: 1.5; }
 
+/* Auswahl zwischen wenigen Möglichkeiten – als anklickbare Zeile, damit auch
+   die Beschriftung ein Ziel ist und nicht nur der kleine Kreis. */
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 400;
+  font-size: 14px;
+}
+.choice input { flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--series-1); }
+.choice:has(input:checked) { border-color: var(--focus); background: var(--surface-2); }
+.choice:focus-within { outline: 2px solid var(--focus); outline-offset: -1px; }
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } }
 

@@ -230,3 +230,78 @@ CREATE TABLE IF NOT EXISTS payout_details (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- --- Marken ------------------------------------------------------------------
+--  Jede Marke ist ein eigener Shop mit eigener Domain und eigenem Rabattsystem.
+--  `link_template` enthält den Platzhalter {CODE}; daraus entsteht der Link,
+--  den der Creator postet.
+CREATE TABLE IF NOT EXISTS brands (
+  id                        BIGSERIAL PRIMARY KEY,
+  name                      TEXT        NOT NULL,
+  slug                      TEXT        NOT NULL UNIQUE,
+  shop_url                  TEXT        NOT NULL,
+  link_template             TEXT        NOT NULL,
+  default_commission_rate   DOUBLE PRECISION NOT NULL DEFAULT 15,
+  default_customer_discount DOUBLE PRECISION NOT NULL DEFAULT 10,
+  note                      TEXT,
+  active                    BOOLEAN     NOT NULL DEFAULT true,
+  sort_order                INTEGER     NOT NULL DEFAULT 0,
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- --- Codes je Creator und Marke ----------------------------------------------
+--  Ersetzt den einen Code je Creator. Ein Creator kann für mehrere Marken
+--  werben und hat je Marke einen eigenen Code, eigene Provision und einen
+--  eigenen Link. Der Code muss nur innerhalb einer Marke eindeutig sein –
+--  zwei getrennte Shops dürfen denselben Code vergeben.
+CREATE TABLE IF NOT EXISTS creator_codes (
+  id                BIGSERIAL PRIMARY KEY,
+  creator_id        BIGINT      NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  brand_id          BIGINT      NOT NULL REFERENCES brands(id)   ON DELETE CASCADE,
+  code              TEXT        NOT NULL,
+  code_norm         TEXT        NOT NULL,
+  commission_rate   DOUBLE PRECISION NOT NULL DEFAULT 15,
+  customer_discount DOUBLE PRECISION NOT NULL DEFAULT 10,
+  status            TEXT        NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active','paused')),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (creator_id, brand_id),
+  UNIQUE (brand_id, code_norm)
+);
+
+CREATE INDEX IF NOT EXISTS idx_creator_codes_creator ON creator_codes(creator_id);
+CREATE INDEX IF NOT EXISTS idx_creator_codes_brand   ON creator_codes(brand_id, code_norm);
+
+-- --- Bestellungen gehören zu einer Marke -------------------------------------
+--  Wichtig: Bestellnummern sind nur je Shop eindeutig. Zwei Marken dürfen
+--  beide eine Bestellung "1001" haben. Die frühere globale Eindeutigkeit von
+--  order_ref wird deshalb durch eine je Marke ersetzt.
+ALTER TABLE sales   ADD COLUMN IF NOT EXISTS brand_id BIGINT REFERENCES brands(id) ON DELETE CASCADE;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS brand_id BIGINT REFERENCES brands(id) ON DELETE SET NULL;
+ALTER TABLE sales   DROP CONSTRAINT IF EXISTS sales_order_ref_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_brand_order ON sales(brand_id, order_ref);
+
+-- Damit die Bestellliste zeigen kann, aus welchem Shop eine Bestellung stammt.
+-- Und aus demselben Grund wie oben muss auch hier die Marke in den Schlüssel:
+-- derselbe Creator kann bei zwei Marken eine Bestellung "1001" haben.
+ALTER TABLE snapshot_orders ADD COLUMN IF NOT EXISTS brand_id BIGINT;
+ALTER TABLE snapshot_orders DROP CONSTRAINT IF EXISTS snapshot_orders_pkey;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_snapshot_orders
+  ON snapshot_orders(run_id, creator_id, brand_id, order_ref);
+
+-- --- Snapshot je Marke -------------------------------------------------------
+--  snapshot_totals bleibt die Gesamtsumme je Creator. Hier steht zusätzlich die
+--  Aufschlüsselung, die das Dashboard je Marke anzeigt.
+CREATE TABLE IF NOT EXISTS snapshot_brand_totals (
+  run_id           BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  creator_id       BIGINT NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  brand_id         BIGINT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+  orders_total     INTEGER NOT NULL DEFAULT 0,
+  revenue_total    DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+  orders_30d       INTEGER NOT NULL DEFAULT 0,
+  revenue_30d      DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission_30d   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  last_sale_date   TEXT,
+  PRIMARY KEY (run_id, creator_id, brand_id)
+);

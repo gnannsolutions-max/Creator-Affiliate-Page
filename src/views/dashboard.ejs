@@ -30,6 +30,16 @@
     </div>
   </div>
 
+  <% if (!hasPayoutDetails) { %>
+    <div class="note note--warn">
+      <p>
+        <strong>Wir wissen noch nicht, wohin wir dein Geld überweisen sollen.</strong>
+        Trag deine Auszahlungsdaten ein, dann geht deine erste Abrechnung ohne Rückfrage raus.
+      </p>
+      <p><a class="btn btn--sm" href="/auszahlung">Auszahlungsdaten eintragen</a></p>
+    </div>
+  <% } %>
+
   <% if (!totals) { %>
     <div class="note note--info">
       <p><strong>Noch keine Zahlen.</strong> Sobald über deinen Code die erste Bestellung eingeht, siehst du sie hier beim nächsten Lauf um 11:00 Uhr.</p>

@@ -1,0 +1,148 @@
+<%- include('partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Auszahlung</h1>
+    <p>Wohin sollen deine Provisionen gehen? Ohne diese Angaben können wir dir nichts überweisen.</p>
+  </div>
+
+  <% if (saved) { %>
+    <div class="note note--good">
+      <p><strong>Gespeichert.</strong> Deine Angaben sind hinterlegt<%= updatedAt ? ' (Stand ' + formatDateTimeDe(updatedAt) + ')' : '' %>.</p>
+    </div>
+  <% } %>
+
+  <% if (errors.form) { %>
+    <div class="note note--danger"><p><%= errors.form %></p></div>
+  <% } else if (Object.keys(errors).length) { %>
+    <div class="note note--danger">
+      <p><strong>Da stimmt noch etwas nicht.</strong> Bitte sieh dir die markierten Felder an.</p>
+    </div>
+  <% } %>
+
+  <form method="post" action="/auszahlung" novalidate>
+    <div class="card">
+      <h2>Auszahlungsweg</h2>
+      <div class="field">
+        <label class="choice">
+          <input type="radio" name="method" value="sepa" <%= values.method !== 'paypal' ? 'checked' : '' %>>
+          <span>Überweisung (SEPA)</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="method" value="paypal" <%= values.method === 'paypal' ? 'checked' : '' %>>
+          <span>PayPal</span>
+        </label>
+        <p class="hint">Bei PayPal können Gebühren anfallen, die von deiner Provision abgehen.</p>
+      </div>
+
+      <div class="field">
+        <label for="account_holder">Kontoinhaber</label>
+        <p class="hint">Genau so, wie der Name beim Konto hinterlegt ist.</p>
+        <input type="text" id="account_holder" name="account_holder" value="<%= values.account_holder || '' %>"
+               autocomplete="name" required <%= errors.account_holder ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.account_holder) { %><p class="field-error"><%= errors.account_holder %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="iban">IBAN</label>
+        <p class="hint">Nur bei Überweisung. Leerzeichen darfst du mittippen.</p>
+        <input type="text" id="iban" name="iban" value="<%= values.iban || '' %>"
+               placeholder="DE89 3704 0044 0532 0130 00" spellcheck="false"
+               <%= errors.iban ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.iban) { %><p class="field-error"><%= errors.iban %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="bic">BIC <span class="muted">(optional)</span></label>
+        <p class="hint">Innerhalb der EU nicht nötig. Nur ausfüllen, wenn dein Konto außerhalb liegt.</p>
+        <input type="text" id="bic" name="bic" value="<%= values.bic || '' %>" spellcheck="false"
+               <%= errors.bic ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.bic) { %><p class="field-error"><%= errors.bic %></p><% } %>
+      </div>
+
+      <div class="field">
+        <label for="paypal_email">PayPal-Adresse</label>
+        <p class="hint">Nur bei PayPal.</p>
+        <input type="email" id="paypal_email" name="paypal_email" value="<%= values.paypal_email || '' %>"
+               spellcheck="false" <%= errors.paypal_email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.paypal_email) { %><p class="field-error"><%= errors.paypal_email %></p><% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Anschrift</h2>
+      <p class="small muted">Steht auf deiner Abrechnung und ist dort Pflichtangabe.</p>
+
+      <div class="field">
+        <label for="street">Straße und Hausnummer</label>
+        <input type="text" id="street" name="street" value="<%= values.street || '' %>"
+               autocomplete="street-address" required <%= errors.street ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.street) { %><p class="field-error"><%= errors.street %></p><% } %>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="postal_code">PLZ</label>
+          <input type="text" id="postal_code" name="postal_code" value="<%= values.postal_code || '' %>"
+                 autocomplete="postal-code" required <%= errors.postal_code ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.postal_code) { %><p class="field-error"><%= errors.postal_code %></p><% } %>
+        </div>
+        <div class="field">
+          <label for="city">Ort</label>
+          <input type="text" id="city" name="city" value="<%= values.city || '' %>"
+                 autocomplete="address-level2" required <%= errors.city ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.city) { %><p class="field-error"><%= errors.city %></p><% } %>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="country">Land</label>
+        <select id="country" name="country">
+          <% Object.keys(countries).forEach(function (code) { %>
+            <option value="<%= code %>" <%= values.country === code ? 'selected' : '' %>><%= countries[code] %></option>
+          <% }); %>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Steuerlicher Status</h2>
+      <p class="small muted">
+        Davon hängt ab, ob auf deiner Abrechnung Umsatzsteuer steht. Wenn du unsicher bist, frag kurz dein Steuerbüro –
+        wir können das nicht für dich entscheiden.
+      </p>
+
+      <div class="field">
+        <% Object.keys(taxStatus).forEach(function (key) { %>
+          <label class="choice">
+            <input type="radio" name="tax_status" value="<%= key %>" <%= values.tax_status === key ? 'checked' : '' %>>
+            <span><%= taxStatus[key] %></span>
+          </label>
+        <% }); %>
+      </div>
+
+      <div class="field">
+        <label for="tax_id">USt-IdNr. oder Steuernummer</label>
+        <p class="hint">Nur nötig, wenn du regelbesteuert bist.</p>
+        <input type="text" id="tax_id" name="tax_id" value="<%= values.tax_id || '' %>" spellcheck="false"
+               <%= errors.tax_id ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.tax_id) { %><p class="field-error"><%= errors.tax_id %></p><% } %>
+      </div>
+
+      <div class="note note--info">
+        <p class="small">
+          Deine Bankdaten sehen nur wir, und nur um dich zu bezahlen. Du kannst sie hier jederzeit ändern; wenn du aus
+          dem Programm aussteigst, löschen wir sie. Wie wir mit deinen Daten umgehen, steht in der
+          <a href="/datenschutz">Datenschutzerklärung</a>.
+        </p>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Speichern</button>
+        <a class="btn btn--ghost" href="/dashboard">Zurück zum Dashboard</a>
+      </div>
+    </div>
+  </form>
+</main>
+
+<%- include('partials/foot') %>

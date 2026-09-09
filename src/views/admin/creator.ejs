@@ -150,6 +150,45 @@
   </div>
 
   <div class="card">
+    <h2>Zahlungsempfänger</h2>
+    <% if (!bank) { %>
+      <div class="note note--warn">
+        <p>
+          <strong>Noch keine Auszahlungsdaten.</strong>
+          <%= c.full_name.split(' ')[0] %> hat sie noch nicht eingetragen. Im Dashboard steht ein Hinweis darauf –
+          bei offener Provision lohnt sich trotzdem eine kurze Nachricht.
+        </p>
+      </div>
+    <% } else { %>
+      <div class="table-scroll">
+        <table>
+          <tbody>
+            <tr><th>Kontoinhaber</th><td><%= bank.account_holder %></td></tr>
+            <% if (bank.method === 'sepa') { %>
+              <tr><th>IBAN</th><td class="mono"><%= formatIban(bank.iban) %></td></tr>
+              <% if (bank.bic) { %><tr><th>BIC</th><td class="mono"><%= bank.bic %></td></tr><% } %>
+            <% } else { %>
+              <tr><th>PayPal</th><td class="mono"><%= bank.paypal_email %></td></tr>
+            <% } %>
+            <tr><th>Anschrift</th><td><%= bank.street %>, <%= bank.postal_code %> <%= bank.city %>, <%= bank.country %></td></tr>
+            <tr><th>Steuerlicher Status</th><td><%= taxStatusLabel[bank.tax_status] || bank.tax_status %></td></tr>
+            <% if (bank.tax_id) { %><tr><th>USt-IdNr. / Steuernummer</th><td class="mono"><%= bank.tax_id %></td></tr><% } %>
+            <tr><th>Zuletzt geändert</th><td><%= formatDateTimeDe(bank.updated_at) %></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <% if (bank.tax_status === 'privat') { %>
+        <div class="note note--warn" style="margin-top:12px">
+          <p class="small">
+            Als Privatperson ohne unternehmerische Tätigkeit kann keine Gutschrift nach § 14 Abs. 2 UStG ausgestellt
+            werden. Kläre vor der ersten Zahlung mit deinem Steuerbüro, wie ihr das abrechnet.
+          </p>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+
+  <div class="card">
     <h2>Auszahlung erfassen</h2>
     <form method="post" action="/admin/payouts">
       <input type="hidden" name="creator_id" value="<%= c.id %>">

@@ -83,18 +83,40 @@ ${config.program.brand}`,
     };
   },
 
-  approved(creator, loginUrl) {
+  /**
+   * `assignments` sind die freigegebenen Marken mit Code, Konditionen und
+   * fertigem Link – genau das, was der Creator zum Loslegen braucht.
+   */
+  approved(creator, loginUrl, assignments = []) {
+    const blocks = assignments
+      .map(
+        (a) => `${a.brandName}
+  Dein Link:  ${a.link}
+  Dein Code:  ${a.code}
+  Provision:  ${a.rate} %
+  Rabatt für deine Community: ${a.discount} %`
+      )
+      .join('\n\n');
+
+    const subject =
+      assignments.length === 1
+        ? `${config.program.name}: Dein Link für ${assignments[0].brandName} ist da`
+        : `${config.program.name}: Deine Links sind da (${assignments.length} Marken)`;
+
     return {
       kind: 'approval',
       link: loginUrl,
-      subject: `${config.program.name}: Dein Code ${creator.assigned_code} ist freigeschaltet`,
+      subject,
       text: `Hallo ${creator.full_name},
 
-dein Creator-Code ist freigeschaltet – du kannst ab sofort loslegen.
+du bist freigeschaltet – du kannst ab sofort loslegen.
 
-Dein Code:      ${creator.assigned_code}
-Deine Provision: ${creator.commission_rate} %
-Rabatt für deine Community: ${creator.customer_discount} %
+${blocks}
+
+Poste den Link, nicht nur den Code: Wer darüber kauft, bekommt den Rabatt
+gleich im Warenkorb, und du musst niemandem erklären, wo er ihn eintippt.
+Zugeordnet wird deine Provision trotzdem über den Code – falls jemand ihn von
+Hand eingibt, zählt das genauso.
 
 Dein Dashboard (Login ohne Passwort, Link 30 Minuten gültig):
 ${loginUrl}

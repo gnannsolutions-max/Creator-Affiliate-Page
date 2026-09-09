@@ -74,13 +74,45 @@ function codeIssue(codeNorm) {
   return null;
 }
 
+/**
+ * Ist der Code schon irgendwo im Umlauf?
+ *
+ * Bei der Bewerbung wird bewusst großzügig geprüft: offene Bewerbungen mit
+ * demselben Wunsch-Code und alle bereits vergebenen Codes, unabhängig von der
+ * Marke. Zwei Creator mit demselben Codewort wären zwar technisch möglich
+ * (Codes müssen nur je Marke eindeutig sein), im Gespräch aber eine sichere
+ * Quelle für Verwechslungen.
+ */
 async function codeTaken(codeNorm, exceptCreatorId) {
   const row = await db.one(
     `SELECT id FROM creators
-      WHERE (assigned_code_norm = $1 OR (status = 'pending' AND UPPER(requested_code) = $1))
+      WHERE (status = 'pending' AND UPPER(requested_code) = $1)
         AND ($2::bigint IS NULL OR id <> $2::bigint)
       LIMIT 1`,
     [codeNorm, exceptCreatorId ?? null]
+  );
+  if (row) return true;
+
+  const assigned = await db.one(
+    `SELECT id FROM creator_codes
+      WHERE code_norm = $1 AND ($2::bigint IS NULL OR creator_id <> $2::bigint)
+      LIMIT 1`,
+    [codeNorm, exceptCreatorId ?? null]
+  );
+  return Boolean(assigned);
+}
+
+/**
+ * Für die Freigabe: Hier zählt nur, ob der Code innerhalb derselben Marke schon
+ * vergeben ist. Zwei getrennte Shops dürfen denselben Code führen.
+ */
+async function codeTakenInBrand(brandId, codeNorm, exceptCreatorId) {
+  const row = await db.one(
+    `SELECT id FROM creator_codes
+      WHERE brand_id = $1 AND code_norm = $2
+        AND ($3::bigint IS NULL OR creator_id <> $3::bigint)
+      LIMIT 1`,
+    [brandId, codeNorm, exceptCreatorId ?? null]
   );
   return Boolean(row);
 }
@@ -162,5 +194,6 @@ module.exports = {
   normalizeHandle,
   codeIssue,
   codeTaken,
+  codeTakenInBrand,
   validateApplication,
 };

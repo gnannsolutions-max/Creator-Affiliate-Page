@@ -335,3 +335,30 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_leads_instagram ON leads(instagram_norm);
 CREATE INDEX IF NOT EXISTS ix_leads_follow_up ON leads(follow_up_on) WHERE follow_up_on IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_leads_status ON leads(status);
+
+-- --- Zugänge zum Adminbereich ------------------------------------------------
+--  Vorher hing der Adminbereich an einem einzigen Passwort aus den
+--  Umgebungsvariablen. Sobald mehr als eine Person damit arbeitet, reicht das
+--  nicht: Man kann niemandem den Zugang entziehen, ohne neu auszuliefern, und
+--  im Protokoll steht nie, wer etwas getan hat.
+--
+--  Zwei Rollen:
+--    owner   – alles, wie bisher
+--    manager – Akquise und Creator; keine Marken, Umsätze, Auszahlungen,
+--              Nachrichten, keine Kontodaten und keine Login-Links
+--
+--  ADMIN_PASSWORD bleibt als Notzugang für den Inhaber bestehen, damit ein
+--  Fehler in dieser Tabelle niemanden aussperrt.
+CREATE TABLE IF NOT EXISTS admin_users (
+  id            BIGSERIAL PRIMARY KEY,
+  name          TEXT NOT NULL,
+  email         TEXT NOT NULL,
+  email_norm    TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'manager',
+  active        BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_login_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_admin_users_email ON admin_users(email_norm);

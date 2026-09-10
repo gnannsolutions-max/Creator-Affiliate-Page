@@ -14,6 +14,7 @@
     <nav class="topnav">
       <% if (admin) { %>
         <a href="/admin" <%= nav === 'admin-home' ? 'class="is-active"' : '' %>>Übersicht</a>
+        <a href="/admin/leads" <%= nav === 'admin-leads' ? 'class="is-active"' : '' %>>Akquise</a>
         <a href="/admin/creators" <%= nav === 'admin-creators' ? 'class="is-active"' : '' %>>Creator</a>
         <a href="/admin/brands" <%= nav === 'admin-brands' ? 'class="is-active"' : '' %>>Marken</a>
         <a href="/admin/import" <%= nav === 'admin-import' ? 'class="is-active"' : '' %>>Umsätze</a>

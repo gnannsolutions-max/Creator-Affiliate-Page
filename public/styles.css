@@ -487,3 +487,68 @@ textarea { min-height: 80px; resize: vertical; }
   font-size: 13px;
 }
 .footer a { color: var(--text-secondary); }
+
+/* --- Akquise ---------------------------------------------------------------
+   Eine Karte je Creator, alles direkt bearbeitbar. Bewusst keine Tabelle: Die
+   Pflege passiert zwischen zwei Instagram-Chats am Handy, und dort ist eine
+   Tabelle mit sechs Spalten unbenutzbar. */
+.lead-section { margin: 28px 0 12px; padding: 0; border: 0; }
+.lead-section h2 { font-size: 17px; }
+
+.lead { border-left: 3px solid transparent; }
+.lead--due { border-left-color: var(--warn); }
+.lead--awaiting { border-left-color: var(--good, #15803d); }
+.lead--closed { opacity: .72; }
+.lead--closed:hover { opacity: 1; }
+
+.lead-head {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; margin-bottom: 10px;
+}
+.lead-head .badge { margin-left: auto; }
+.lead-handle { font-weight: 650; font-size: 16px; }
+.lead-name { color: var(--text-muted); margin-left: 8px; font-size: 14px; }
+.lead-linked { margin: 0 0 10px; }
+
+.lead-linkbox {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 12px;
+}
+.lead-linkrow { gap: 10px; margin-top: 6px; }
+.lead-linkhint { margin: 8px 0 0; }
+.lead-url { word-break: break-all; font-size: 12px; flex: 1; min-width: 0; }
+
+/* Zugeklappte Zusammenfassung: Termin, Wiedervorlage, Anfang der Notiz. */
+.lead-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  color: var(--text-secondary); margin: 0 0 10px;
+}
+.lead-meta .lead-note { color: var(--text-muted); font-style: italic; }
+.lead--due .lead-meta { color: var(--warn); font-weight: 600; }
+
+.lead-edit > summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  padding: 6px 0; user-select: none;
+}
+.lead-edit > summary::-webkit-details-marker { display: none; }
+.lead-edit > summary::before {
+  content: ""; width: 7px; height: 7px; flex: none;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg) translate(-1px, -1px);
+}
+.lead-edit[open] > summary::before { transform: rotate(45deg) translate(-2px, -2px); }
+.lead-edit > summary:hover { color: var(--text); }
+.lead-edit[open] > summary { margin-bottom: 6px; }
+
+.lead-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 14px; }
+.lead-form .field { margin-bottom: 12px; }
+.lead-actions { margin-top: 2px; }
+
+@media (max-width: 860px) {
+  .lead-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .lead-grid { grid-template-columns: 1fr; }
+  .lead-head .badge { margin-left: 0; }
+}

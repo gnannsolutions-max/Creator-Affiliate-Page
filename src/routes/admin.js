@@ -10,6 +10,7 @@ const { normalizeCode, codeIssue, codeTaken, codeTakenInBrand } = require('../li
 const rateLimit = require('../lib/ratelimit');
 const payout = require('../lib/payout');
 const brandsLib = require('../lib/brands');
+const leadsLib = require('../lib/leads');
 const { importSalesCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays } = require('../lib/dates');
@@ -97,11 +98,14 @@ router.get('/', async (req, res) => {
     );
   }
 
+  const akquise = await leadsLib.summary().catch(() => null);
+
   res.render('admin/home', {
     title: 'Übersicht',
     nav: 'admin-home',
     run,
     counts,
+    akquise,
     totals,
     top,
     refreshTime: config.refresh.label,
@@ -707,6 +711,79 @@ router.post('/payouts/:id/paid', async (req, res) => {
     req.params.id,
   ]);
   res.redirect(`/admin/payouts?ok=${encodeURIComponent('Als ausgezahlt markiert.')}`);
+});
+
+// --- Akquise -----------------------------------------------------------------
+
+/**
+ * Die Liste ist nach Dringlichkeit sortiert und wird zusätzlich in „fällig“ und
+ * „später“ geteilt. Wer die Seite öffnet, soll oben sehen, was heute ansteht,
+ * ohne zu suchen.
+ */
+async function renderLeads(req, res, extra = {}) {
+  const rows = await leadsLib.all();
+  const today = localDate();
+
+  // follow_up_on kommt als 'YYYY-MM-DD' – so lässt es sich direkt vergleichen.
+  const isDue = (l) => leadsLib.OPEN.includes(l.status) && l.follow_up_on && l.follow_up_on <= today;
+
+  res.render('admin/leads', {
+    title: 'Akquise',
+    nav: 'admin-leads',
+    today,
+    due: rows.filter(isDue),
+    // Zugesagt, aber noch nicht beworben: Das ist der Stapel, bei dem Geld
+    // liegen bleibt – deshalb ein eigener Abschnitt und nicht unter
+    // „abgeschlossen“ mit halber Deckkraft.
+    awaiting: rows.filter((l) => l.status === 'won' && !l.creator_id),
+    open: rows.filter((l) => leadsLib.OPEN.includes(l.status) && !isDue(l)),
+    closed: rows.filter(
+      (l) => !leadsLib.OPEN.includes(l.status) && !(l.status === 'won' && !l.creator_id)
+    ),
+    statuses: leadsLib.STATUS,
+    statusLabel: leadsLib.statusLabel,
+    profileUrl: leadsLib.profileUrl,
+    applyUrlFor: (lead) => leadsLib.applyUrl(config.baseUrl, lead),
+    flash: req.query.ok || null,
+    error: null,
+    openId: Number(req.query.offen) || null,
+    ...extra,
+  });
+}
+
+router.get('/leads', (req, res) => renderLeads(req, res));
+
+router.post('/leads', async (req, res) => {
+  const result = await leadsLib.addMany(req.body && req.body.handles);
+
+  if (!result.handles.length) {
+    return renderLeads(req, res, {
+      error: 'Kein brauchbarer Instagram-Name dabei. Ein Name je Zeile, mit oder ohne @.',
+    });
+  }
+
+  await db.log(config.adminName, 'lead.added', String(result.added), `${result.handles.length} eingegeben`);
+
+  const parts = [`${result.added} neu`];
+  if (result.skipped) parts.push(`${result.skipped} schon vorhanden`);
+  res.redirect(`/admin/leads?ok=${encodeURIComponent(parts.join(', ') + '.')}`);
+});
+
+router.post('/leads/:id', async (req, res) => {
+  const lead = await leadsLib.byId(req.params.id);
+  if (!lead) return res.redirect('/admin/leads');
+
+  await leadsLib.save(lead.id, req.body || {});
+  res.redirect(`/admin/leads?ok=${encodeURIComponent(`@${lead.instagram} gespeichert.`)}`);
+});
+
+router.post('/leads/:id/loeschen', async (req, res) => {
+  const lead = await leadsLib.byId(req.params.id);
+  if (!lead) return res.redirect('/admin/leads');
+
+  await leadsLib.remove(lead.id);
+  await db.log(config.adminName, 'lead.deleted', lead.instagram, null);
+  res.redirect(`/admin/leads?ok=${encodeURIComponent(`@${lead.instagram} entfernt.`)}`);
 });
 
 module.exports = router;

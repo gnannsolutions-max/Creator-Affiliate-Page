@@ -8,6 +8,7 @@ const auth = require('../lib/auth');
 const mailer = require('../lib/mailer');
 const rateLimit = require('../lib/ratelimit');
 const partners = require('../lib/partners');
+const leads = require('../lib/leads');
 
 const router = express.Router();
 
@@ -126,6 +127,13 @@ router.post('/bewerben', async (req, res) => {
   }
 
   await db.log('creator', 'application.created', creator.email, `Wunsch-Code ${creator.requested_code}`);
+
+  // Kam die Bewerbung über den persönlichen Link aus der Akquise (?src=lead-17),
+  // hängt sie ab jetzt an diesem Eintrag. Scheitert das, ist es folgenlos – die
+  // Bewerbung steht so oder so im Adminbereich.
+  await leads
+    .linkFromSource(values.source, creator.id)
+    .catch((err) => console.error('Lead nicht verknüpfbar:', err.message));
 
   const mail = mailer.templates.applicationReceived(creator);
   await mailer

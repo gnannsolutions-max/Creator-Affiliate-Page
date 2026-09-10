@@ -1,0 +1,111 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Zugänge</h1>
+    <p>Wer sich am Adminbereich anmelden darf. Jede Person mit eigener Adresse und eigenem Passwort – dann steht im Protokoll auch, wer was gemacht hat.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+  <% if (errors.form) { %><div class="note note--danger"><p><%= errors.form %></p></div><% } %>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Angelegte Zugänge</h2></div>
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Noch keiner. Du selbst bist über <code class="mono">ADMIN_PASSWORD</code> drin – das bleibt auch so.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Zuletzt angemeldet</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (u) { %>
+          <tr<%= u.active ? '' : ' class="is-muted"' %>>
+            <td>
+              <%= u.name %>
+              <% if (!u.active) { %><span class="badge badge--neutral">gesperrt</span><% } %>
+            </td>
+            <td class="small mono"><%= u.email %></td>
+            <td class="small"><%= roleLabel(u.role) %></td>
+            <td class="small"><%= u.last_login_at ? formatDateTimeDe(u.last_login_at) : 'nie' %></td>
+            <td class="num">
+              <form method="post" action="/admin/team/<%= u.id %>/aktiv" class="inline-form">
+                <input type="hidden" name="active" value="<%= u.active ? '0' : '1' %>">
+                <button class="btn btn--ghost btn--sm" type="submit"><%= u.active ? 'Sperren' : 'Entsperren' %></button>
+              </form>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h2>Neuen Zugang anlegen</h2>
+    <p class="hint">Das Passwort siehst du danach nicht wieder – es wird nur verschlüsselt gespeichert. Gib es der Person über einen Weg weiter, der nicht mitgelesen wird, und lass sie es nicht per E-Mail zurückschicken.</p>
+    <form method="post" action="/admin/team">
+      <div class="grid-2">
+        <div class="field">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" value="<%= values.name || '' %>" required
+                 <%= errors.name ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.name) { %><p class="field-error"><%= errors.name %></p><% } %>
+        </div>
+        <div class="field">
+          <label for="new_email">E-Mail-Adresse</label>
+          <input type="email" id="new_email" name="email" value="<%= values.email || '' %>" required
+                 <%= errors.email ? 'aria-invalid="true"' : '' %>>
+          <% if (errors.email) { %><p class="field-error"><%= errors.email %></p><% } %>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Rolle</label>
+        <% roles.forEach(function (r) { %>
+          <label class="choice">
+            <input type="radio" name="role" value="<%= r.key %>" <%= (values.role || 'manager') === r.key ? 'checked' : '' %>>
+            <span><strong><%= r.label %></strong><br><span class="small muted"><%= r.hint %></span></span>
+          </label>
+        <% }); %>
+      </div>
+
+      <div class="field">
+        <label for="password">Passwort</label>
+        <p class="hint">Mindestens 12 Zeichen. Drei zufällige Wörter sind sicherer und leichter zu merken als ein kurzes Kunstwort.</p>
+        <input type="password" id="password" name="password" autocomplete="new-password" required
+               <%= errors.password ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.password) { %><p class="field-error"><%= errors.password %></p><% } %>
+      </div>
+
+      <button class="btn" type="submit">Zugang anlegen</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Was die Rollen dürfen</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Bereich</th><th>Inhaber</th><th>Creator Success</th></tr></thead>
+        <tbody>
+          <tr><td>Akquise</td><td>ja</td><td>ja</td></tr>
+          <tr><td>Creator freigeben, Codes und Konditionen vergeben</td><td>ja</td><td>ja</td></tr>
+          <tr><td>Umsatzzahlen je Creator</td><td>ja</td><td>ja</td></tr>
+          <tr><td>Zahlungsempfängerdaten (IBAN, Anschrift)</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Login-Links für Creator erzeugen</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Marken anlegen und ändern</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Umsätze importieren</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Auszahlungen buchen</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Nachrichten-Postfach</td><td>ja</td><td><strong>nein</strong></td></tr>
+          <tr><td>Zugänge verwalten</td><td>ja</td><td><strong>nein</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small muted" style="margin-top:12px">
+      Login-Links sind gesperrt, weil sie faktisch ein Generalschlüssel sind: Wer damit als Creator eingeloggt ist,
+      sieht dessen Dashboard samt Auszahlungsdaten – und hätte die IBAN-Sperre umgangen.
+    </p>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

@@ -39,7 +39,7 @@
       <a class="btn btn--ghost btn--sm" href="https://instagram.com/<%= c.instagram %>" target="_blank" rel="noopener">@<%= c.instagram %> auf Instagram</a>
       <% if (c.tiktok) { %><a class="btn btn--ghost btn--sm" href="https://tiktok.com/@<%= c.tiktok %>" target="_blank" rel="noopener">TikTok</a><% } %>
       <% if (c.youtube) { %><a class="btn btn--ghost btn--sm" href="https://youtube.com/@<%= c.youtube %>" target="_blank" rel="noopener">YouTube</a><% } %>
-      <% if (c.status === 'approved' || c.status === 'paused') { %>
+      <% if (admin.role === 'owner' && (c.status === 'approved' || c.status === 'paused')) { %>
       <form method="post" action="/admin/creators/<%= c.id %>/login-link" style="margin-left:auto">
         <button class="btn btn--ghost btn--sm" type="submit">Login-Link erzeugen</button>
       </form>
@@ -59,7 +59,7 @@
     <form method="post" action="/admin/creators/<%= c.id %>/approve">
       <% if (!brandList.filter(function (b) { return b.active; }).length) { %>
         <div class="note note--warn">
-          <p><strong>Keine aktive Marke.</strong> Lege zuerst unter <a href="/admin/brands">Marken</a> eine an – ohne Marke gibt es keinen Link.</p>
+          <% if (admin.role === 'owner') { %><p><strong>Keine aktive Marke.</strong> Lege zuerst unter <a href="/admin/brands">Marken</a> eine an – ohne Marke gibt es keinen Link.</p><% } else { %><p><strong>Keine aktive Marke.</strong> Ohne Marke gibt es keinen Link. Sag dem Inhaber Bescheid, dass eine angelegt werden muss.</p><% } %>
         </div>
       <% } %>
       <% brandList.forEach(function (b) {
@@ -196,6 +196,7 @@
     </div>
   </div>
 
+  <% if (admin.role === 'owner') { %>
   <div class="card">
     <h2>Zahlungsempfänger</h2>
     <% if (!bank) { %>
@@ -256,6 +257,7 @@
       </div>
     </form>
   </div>
+  <% } %>
   <% } else { %>
   <div class="card">
     <div class="note note--danger">
@@ -268,6 +270,7 @@
   <% } %>
 
   <p><a href="/admin/creators">← Zurück zur Liste</a></p>
+
 </main>
 
 <script>

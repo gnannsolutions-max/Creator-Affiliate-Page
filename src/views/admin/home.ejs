@@ -15,7 +15,7 @@
 
   <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
 
-  <% if (!hasSmtp) { %>
+  <% if (!hasSmtp && admin.role === 'owner') { %>
     <div class="note note--warn">
       <p><strong>Kein SMTP-Zugang hinterlegt.</strong> Das Portal verschickt keine E-Mails – es funktioniert trotzdem vollständig.</p>
       <p>Jede Freigabe- und Login-Nachricht steht mitsamt Link unter <a href="/admin/mails">Nachrichten</a>. Kopiere den Link und schick ihn dem Creator selbst. Wenn das Portal die Mails übernehmen soll, trage <code class="mono">SMTP_HOST</code> und Zugangsdaten in den Umgebungsvariablen ein.</p>
@@ -50,6 +50,7 @@
       <div class="stat-value"><%= num(counts.approved) %></div>
       <div class="stat-sub"><%= num(counts.paused) %> pausiert</div>
     </div>
+    <% if (admin.role === 'owner') { %>
     <div class="stat">
       <div class="stat-label">Umsatz 30 Tage</div>
       <div class="stat-value"><%= money(totals.revenue30) %></div>
@@ -60,6 +61,7 @@
       <div class="stat-value"><%= money(totals.commissionOpen) %></div>
       <div class="stat-sub"><a href="/admin/payouts">Auszahlungen</a></div>
     </div>
+    <% } %>
   </div>
 
   <div class="card">
@@ -67,7 +69,7 @@
       <form method="post" action="/admin/refresh">
         <button class="btn" type="submit">Dashboard jetzt aktualisieren</button>
       </form>
-      <a class="btn btn--ghost" href="/admin/import">Umsatz-CSV hochladen</a>
+      <% if (admin.role === 'owner') { %><a class="btn btn--ghost" href="/admin/import">Umsatz-CSV hochladen</a><% } %>
       <span class="small muted">Der automatische Lauf startet täglich um <%= refreshTime %> (<%= timezone %>).</span>
     </div>
   </div>

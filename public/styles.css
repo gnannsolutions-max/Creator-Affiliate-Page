@@ -552,3 +552,8 @@ textarea { min-height: 80px; resize: vertical; }
   .lead-grid { grid-template-columns: 1fr; }
   .lead-head .badge { margin-left: 0; }
 }
+
+/* --- Zugänge --------------------------------------------------------------- */
+.inline-form { display: inline; }
+tr.is-muted td { opacity: .55; }
+tr.is-muted .badge { opacity: 1; }

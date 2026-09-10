@@ -305,3 +305,33 @@ CREATE TABLE IF NOT EXISTS snapshot_brand_totals (
   last_sale_date   TEXT,
   PRIMARY KEY (run_id, creator_id, brand_id)
 );
+
+-- --- Akquise -----------------------------------------------------------------
+--  Creator, die noch keine Bewerbung abgeschickt haben: angeschrieben auf
+--  Instagram, Termin vereinbart, zu- oder abgesagt. Bewusst eine eigene Tabelle
+--  und nicht ein weiterer Status in `creators` – ein Lead hat weder E-Mail noch
+--  Code noch eine dokumentierte Zustimmung zu den Regeln, und genau die sind
+--  dort Pflichtfelder.
+--
+--  Sobald sich jemand über seinen persönlichen Bewerbungslink bewirbt, wird
+--  creator_id gesetzt. Ab da ist der Lead nur noch Historie; gearbeitet wird
+--  mit dem Creator-Datensatz.
+CREATE TABLE IF NOT EXISTS leads (
+  id            BIGSERIAL PRIMARY KEY,
+  instagram     TEXT NOT NULL,
+  instagram_norm TEXT NOT NULL,
+  full_name     TEXT,
+  status        TEXT NOT NULL DEFAULT 'contacted',
+  meeting_at    TIMESTAMPTZ,
+  follow_up_on  DATE,
+  note          TEXT,
+  creator_id    BIGINT REFERENCES creators(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Ein Instagram-Konto nur einmal – sonst schreibt man denselben Menschen
+-- zweimal an, was schlechter ist als ihn gar nicht anzuschreiben.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_leads_instagram ON leads(instagram_norm);
+CREATE INDEX IF NOT EXISTS ix_leads_follow_up ON leads(follow_up_on) WHERE follow_up_on IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_leads_status ON leads(status);

@@ -120,20 +120,80 @@ function checkAdminPassword(input) {
   return crypto.timingSafeEqual(a, b);
 }
 
-function startAdminSession(res) {
+/**
+ * Startet die Adminsitzung. `user` ist entweder ein Datensatz aus admin_users
+ * oder null – dann meldet sich der Inhaber über ADMIN_PASSWORD an, den
+ * Notzugang, der auch ohne Einträge in der Tabelle funktioniert.
+ */
+function startAdminSession(res, user = null) {
   const maxAge = 12 * 60 * 60 * 1000;
-  res.cookie(ADMIN_COOKIE, sign({ admin: true, exp: Date.now() + maxAge }), cookieOptions(maxAge));
+  const payload = {
+    admin: true,
+    uid: user ? user.id : null,
+    role: user ? user.role : 'owner',
+    name: user ? user.name : config.adminName,
+    exp: Date.now() + maxAge,
+  };
+  res.cookie(ADMIN_COOKIE, sign(payload), cookieOptions(maxAge));
 }
 
 function endAdminSession(res) {
   res.clearCookie(ADMIN_COOKIE, { path: '/' });
 }
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   const payload = unsign(req.cookies?.[ADMIN_COOKIE]);
   if (!payload?.admin) return res.redirect('/admin/login');
-  req.admin = { name: config.adminName };
+
+  // Bei jedem Aufruf nachsehen, ob der Zugang noch gilt. Ohne das würde eine
+  // Sperre erst greifen, wenn die Sitzung von selbst abläuft – im schlechtesten
+  // Fall zwölf Stunden später. Genau in diesen zwölf Stunden will man aber
+  // jemanden aussperren. Kostet eine kleine Abfrage je Seitenaufruf.
+  //
+  // Rolle und Name kommen ebenfalls frisch aus der Datenbank: Wer jemanden
+  // herabstuft, will nicht warten, bis dessen Sitzung endet.
+  if (payload.uid) {
+    const user = await db
+      .one('SELECT id, name, role, active FROM admin_users WHERE id = $1', [payload.uid])
+      .catch(() => null);
+
+    if (!user || !user.active) {
+      endAdminSession(res);
+      return res.redirect('/admin/login');
+    }
+    req.admin = { id: user.id, name: user.name, role: user.role };
+    res.locals.admin = req.admin;
+    return next();
+  }
+
+  // Ohne uid: der Inhaber über ADMIN_PASSWORD. Ebenso Sitzungen aus der Zeit
+  // vor den Rollen – die gehörten zwangsläufig ihm, sonst gäbe es sie nicht.
+  req.admin = {
+    id: null,
+    name: payload.name || config.adminName,
+    role: payload.role || 'owner',
+  };
+  // Damit die Vorlagen wissen, wer angemeldet ist – die Navigation blendet
+  // danach aus, was diese Rolle nicht sehen darf.
+  res.locals.admin = req.admin;
   next();
+}
+
+/**
+ * Sperrt eine Route für alle Rollen außer den genannten.
+ *
+ * Bewusst eine Weiche am Server und nicht nur ein ausgeblendeter Menüpunkt:
+ * Wer die Adresse kennt, tippt sie sonst einfach ein.
+ */
+function requireRole(...roles) {
+  return function roleGate(req, res, next) {
+    if (roles.includes(req.admin?.role)) return next();
+    res.status(403).render('error', {
+      title: 'Kein Zugriff',
+      heading: 'Dafür fehlt dir die Berechtigung',
+      message: 'Dieser Bereich ist dem Inhaber vorbehalten. Wende dich an ihn, wenn du hier etwas brauchst.',
+    });
+  };
 }
 
 module.exports = {
@@ -148,4 +208,5 @@ module.exports = {
   startAdminSession,
   endAdminSession,
   requireAdmin,
+  requireRole,
 };

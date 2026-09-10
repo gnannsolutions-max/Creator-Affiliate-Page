@@ -22,7 +22,24 @@
     </div>
   <% } %>
 
+  <% if (akquise && Number(akquise.due) > 0) { %>
+    <div class="note note--warn">
+      <p>
+        <strong><%= num(akquise.due) %> <%= Number(akquise.due) === 1 ? 'Wiedervorlage ist' : 'Wiedervorlagen sind' %> fällig.</strong>
+        <% if (Number(akquise.upcoming) > 0) { %>Dazu <%= num(akquise.upcoming) %> anstehende<%= Number(akquise.upcoming) === 1 ? 'r Termin' : ' Termine' %>.<% } %>
+      </p>
+      <p><a class="btn btn--sm" href="/admin/leads">Zur Akquise</a></p>
+    </div>
+  <% } %>
+
   <div class="stats">
+    <div class="stat">
+      <div class="stat-label">In Akquise</div>
+      <div class="stat-value"><%= num(akquise ? akquise.open : 0) %></div>
+      <div class="stat-sub">
+        <% if (akquise && Number(akquise.due) > 0) { %><%= num(akquise.due) %> fällig · <% } %><a href="/admin/leads">Ansehen</a>
+      </div>
+    </div>
     <div class="stat">
       <div class="stat-label">Offene Bewerbungen</div>
       <div class="stat-value"><%= num(counts.pending) %></div>

@@ -1,0 +1,146 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Akquise</h1>
+    <p>Creator, die du angeschrieben hast. Sobald sich jemand über seinen Link bewirbt, taucht er unter <a href="/admin/creators">Creator</a> auf.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+  <% if (error) { %><div class="note note--danger"><p><%= error %></p></div><% } %>
+
+  <div class="card">
+    <form method="post" action="/admin/leads">
+      <div class="field">
+        <label for="handles">Neue Creator aufnehmen</label>
+        <p class="hint">Instagram-Namen, einer je Zeile. Mit oder ohne @, Profiladressen gehen auch. Doppelte werden übersprungen.</p>
+        <textarea id="handles" name="handles" rows="3" spellcheck="false"
+                  placeholder="@lena.trains&#10;marcofitness&#10;instagram.com/kraftraum.jana"></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit">Aufnehmen</button>
+      </div>
+    </form>
+  </div>
+
+  <%
+    /*
+     * Eine Karte je Creator. Zugeklappt steht nur, was man beim Überfliegen
+     * braucht; das Formular erscheint auf Klick. Bei fünfzig Leads wäre eine
+     * Seite aus fünfzig offenen Formularen sonst nicht mehr benutzbar.
+     * Fällige stehen offen – die sind heute dran.
+     */
+    function leadCard(l, klasse, offen) { %>
+    <div class="card lead <%= klasse || '' %>">
+      <div class="lead-head">
+        <a class="lead-handle" href="<%= profileUrl(l.instagram) %>" target="_blank" rel="noopener">@<%= l.instagram %></a>
+        <% if (l.full_name) { %><span class="lead-name"><%= l.full_name %></span><% } %>
+        <span class="badge badge--<%= l.status === 'won' ? 'good' : (l.status === 'lost' ? 'danger' : (l.status === 'meeting' ? 'warn' : 'neutral')) %>"><%= statusLabel(l.status) %></span>
+      </div>
+
+      <p class="lead-meta small">
+        <% if (l.meeting_at) { %><span>Termin <%= formatDateTimeDe(l.meeting_at) %></span><% } %>
+        <% if (l.follow_up_on) { %><span>Wiedervorlage <%= formatDateDe(l.follow_up_on) %></span><% } %>
+        <% if (!l.meeting_at && !l.follow_up_on) { %><span class="muted">Kein Termin, keine Wiedervorlage</span><% } %>
+        <% if (l.note) { %><span class="lead-note"><%= l.note.length > 90 ? l.note.slice(0, 90) + '…' : l.note %></span><% } %>
+      </p>
+
+      <% if (l.creator_id) { %>
+        <p class="small lead-linked">
+          Hat sich beworben: <a href="/admin/creators/<%= l.creator_id %>"><%= l.creator_name %></a>
+        </p>
+      <% } else if (l.status === 'won') { %>
+        <div class="lead-linkbox">
+          <span class="small"><strong>Sein Bewerbungslink</strong></span>
+          <div class="code-display lead-linkrow">
+            <div class="mono lead-url"><%= applyUrlFor(l) %></div>
+            <button class="btn btn--sm" type="button" data-copy="<%= applyUrlFor(l) %>">Kopieren</button>
+          </div>
+          <p class="small muted lead-linkhint">Schick ihm den. Er füllt das kurze Formular aus und stimmt dabei den Werberegeln zu – danach kannst du ihn unter Creator freigeben und Marken zuordnen.</p>
+        </div>
+      <% } %>
+
+      <details class="lead-edit" <%= offen ? 'open' : '' %>>
+        <summary>Bearbeiten</summary>
+        <form method="post" action="/admin/leads/<%= l.id %>" class="lead-form">
+          <div class="lead-grid">
+            <div class="field">
+              <label for="name_<%= l.id %>">Name</label>
+              <input type="text" id="name_<%= l.id %>" name="full_name" value="<%= l.full_name || '' %>" placeholder="optional">
+            </div>
+            <div class="field">
+              <label for="status_<%= l.id %>">Stand</label>
+              <select id="status_<%= l.id %>" name="status">
+                <% statuses.forEach(function (s) { %>
+                  <option value="<%= s.key %>" <%= l.status === s.key ? 'selected' : '' %>><%= s.label %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="field">
+              <label for="meeting_<%= l.id %>">Termin</label>
+              <input type="datetime-local" id="meeting_<%= l.id %>" name="meeting_at" value="<%= l.meeting_local || '' %>">
+            </div>
+            <div class="field">
+              <label for="follow_<%= l.id %>">Wiedervorlage</label>
+              <input type="date" id="follow_<%= l.id %>" name="follow_up_on" value="<%= l.follow_up_on || '' %>">
+            </div>
+          </div>
+          <div class="field">
+            <label for="note_<%= l.id %>">Notiz</label>
+            <textarea id="note_<%= l.id %>" name="note" rows="2" placeholder="Was war, was ist der nächste Schritt"><%= l.note || '' %></textarea>
+          </div>
+          <div class="actions lead-actions">
+            <button class="btn btn--sm" type="submit">Speichern</button>
+            <button class="btn btn--ghost btn--sm" type="submit" formaction="/admin/leads/<%= l.id %>/loeschen">Entfernen</button>
+          </div>
+        </form>
+      </details>
+    </div>
+  <% } %>
+
+  <div class="card-head lead-section">
+    <h2>Heute fällig</h2>
+    <span class="sub"><%= num(due.length) %> <%= due.length === 1 ? 'Eintrag' : 'Einträge' %></span>
+  </div>
+  <% if (!due.length) { %>
+    <div class="card"><p class="empty">Nichts fällig. Wiedervorlagen bis einschließlich <%= formatDateDe(today) %> stehen hier.</p></div>
+  <% } else { due.forEach(function (l) { leadCard(l, 'lead--due', true); }); } %>
+
+  <% if (awaiting.length) { %>
+    <div class="card-head lead-section">
+      <h2>Wartet auf die Bewerbung</h2>
+      <span class="sub"><%= num(awaiting.length) %></span>
+    </div>
+    <% awaiting.forEach(function (l) { leadCard(l, 'lead--awaiting', false); }); %>
+  <% } %>
+
+  <div class="card-head lead-section">
+    <h2>Läuft</h2>
+    <span class="sub"><%= num(open.length) %> offen</span>
+  </div>
+  <% if (!open.length) { %>
+    <div class="card"><p class="empty">Niemand in Bearbeitung.</p></div>
+  <% } else { open.forEach(function (l) { leadCard(l); }); } %>
+
+  <div class="card-head lead-section">
+    <h2>Abgeschlossen</h2>
+    <span class="sub"><%= num(closed.length) %></span>
+  </div>
+  <% if (!closed.length) { %>
+    <div class="card"><p class="empty">Noch nichts abgeschlossen.</p></div>
+  <% } else { closed.forEach(function (l) { leadCard(l, 'lead--closed'); }); } %>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('../partials/foot') %>

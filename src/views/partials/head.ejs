@@ -16,11 +16,14 @@
         <a href="/admin" <%= nav === 'admin-home' ? 'class="is-active"' : '' %>>Übersicht</a>
         <a href="/admin/leads" <%= nav === 'admin-leads' ? 'class="is-active"' : '' %>>Akquise</a>
         <a href="/admin/creators" <%= nav === 'admin-creators' ? 'class="is-active"' : '' %>>Creator</a>
-        <a href="/admin/brands" <%= nav === 'admin-brands' ? 'class="is-active"' : '' %>>Marken</a>
-        <a href="/admin/import" <%= nav === 'admin-import' ? 'class="is-active"' : '' %>>Umsätze</a>
-        <a href="/admin/payouts" <%= nav === 'admin-payouts' ? 'class="is-active"' : '' %>>Auszahlungen</a>
-        <a href="/admin/mails" <%= nav === 'admin-mails' ? 'class="is-active"' : '' %>>Nachrichten</a>
-        <a href="/admin/logout">Abmelden</a>
+        <% if (admin.role !== 'manager') { %>
+          <a href="/admin/brands" <%= nav === 'admin-brands' ? 'class="is-active"' : '' %>>Marken</a>
+          <a href="/admin/import" <%= nav === 'admin-import' ? 'class="is-active"' : '' %>>Umsätze</a>
+          <a href="/admin/payouts" <%= nav === 'admin-payouts' ? 'class="is-active"' : '' %>>Auszahlungen</a>
+          <a href="/admin/mails" <%= nav === 'admin-mails' ? 'class="is-active"' : '' %>>Nachrichten</a>
+          <a href="/admin/team" <%= nav === 'admin-team' ? 'class="is-active"' : '' %>>Zugänge</a>
+        <% } %>
+        <a href="/admin/logout">Abmelden<% if (admin.name) { %> <span class="muted">(<%= admin.name %>)</span><% } %></a>
       <% } else if (creator && creator.status === 'approved') { %>
         <a href="/dashboard" <%= nav === 'dashboard' ? 'class="is-active"' : '' %>>Dashboard</a>
         <a href="/auszahlung" <%= nav === 'payout' ? 'class="is-active"' : '' %>>Auszahlung</a>

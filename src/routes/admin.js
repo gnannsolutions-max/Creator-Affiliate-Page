@@ -11,6 +11,7 @@ const rateLimit = require('../lib/ratelimit');
 const payout = require('../lib/payout');
 const brandsLib = require('../lib/brands');
 const leadsLib = require('../lib/leads');
+const adminUsers = require('../lib/adminUsers');
 const { importSalesCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays } = require('../lib/dates');
@@ -24,11 +25,11 @@ const upload = multer({
 // --- Login -------------------------------------------------------------------
 
 router.get('/login', (req, res) => {
-  res.render('admin/login', { title: 'Admin', nav: null, error: null });
+  res.render('admin/login', { title: 'Admin', nav: null, error: null, email: '' });
 });
 
-// Der Adminbereich hängt an einem einzigen Passwort. Ohne Bremse wäre er
-// systematisch durchprobierbar – deshalb die engste Grenze im ganzen Portal.
+// Der Adminbereich ist ohne Bremse systematisch durchprobierbar – deshalb die
+// engste Grenze im ganzen Portal.
 const ADMIN_LOGIN_LIMIT = { limit: 5, windowSeconds: 15 * 60 };
 
 router.post('/login', async (req, res) => {
@@ -42,19 +43,45 @@ router.post('/login', async (req, res) => {
     return res.status(429).render('admin/login', {
       title: 'Admin',
       nav: null,
+      email: String(req.body.email || ''),
       error: `Zu viele Versuche. Nächster Versuch in etwa ${Math.ceil(gate.retryAfter / 60)} Minuten.`,
     });
   }
 
-  if (!auth.checkAdminPassword(req.body.password)) {
-    await db.log('system', 'admin.login.failed', ip, `Versuch ${gate.hits} von ${ADMIN_LOGIN_LIMIT.limit}`).catch(() => {});
-    return res.status(401).render('admin/login', { title: 'Admin', nav: null, error: 'Falsches Passwort.' });
+  const email = String(req.body.email || '').trim();
+  const password = req.body.password;
+
+  // Zwei Wege hinein. Ohne Adresse zählt ADMIN_PASSWORD – der Notzugang des
+  // Inhabers, der unabhängig von der Nutzertabelle funktioniert. Mit Adresse
+  // wird in admin_users gesucht.
+  let user = null;
+  if (email) {
+    user = await adminUsers.authenticate(email, password);
+  } else if (auth.checkAdminPassword(password)) {
+    user = null; // Inhaber über den Notzugang
+  } else {
+    user = false; // Kennzeichnet: fehlgeschlagen
+  }
+
+  if (user === false || (email && !user)) {
+    await db
+      .log('system', 'admin.login.failed', email || ip, `Versuch ${gate.hits} von ${ADMIN_LOGIN_LIMIT.limit}`)
+      .catch(() => {});
+    // Bewusst dieselbe Meldung für falsche Adresse, falsches Passwort und
+    // gesperrten Zugang – alles andere verrät, welche Zugänge es gibt.
+    return res.status(401).render('admin/login', {
+      title: 'Admin',
+      nav: null,
+      email,
+      error: 'E-Mail-Adresse oder Passwort stimmt nicht.',
+    });
   }
 
   // Nach erfolgreichem Login den Zähler leeren, damit ein vertipptes Passwort
   // die eigene Sitzung nicht noch eine Viertelstunde lang ausbremst.
   await rateLimit.clear(bucket);
-  auth.startAdminSession(res);
+  auth.startAdminSession(res, user);
+  await db.log(user ? user.name : config.adminName, 'admin.login', user ? user.email : 'Notzugang', null).catch(() => {});
   res.redirect('/admin');
 });
 
@@ -64,6 +91,15 @@ router.get('/logout', (req, res) => {
 });
 
 router.use(auth.requireAdmin);
+
+// Ab hier ist klar, wer angemeldet ist. Diese Bereiche bleiben dem Inhaber
+// vorbehalten – Geld, Konditionen und Zugänge. Die Prüfung hängt am Pfad und
+// nicht an den Routen einzeln, damit beim Nachrüsten einer Route niemand
+// vergisst, sie abzusichern.
+router.use(['/brands', '/import', '/payouts', '/mails', '/team'], auth.requireRole('owner'));
+
+/** Wer die Aktion ausgelöst hat – steht so im Protokoll. */
+const actor = (req) => (req.admin && req.admin.name) || config.adminName;
 
 // --- Übersicht ---------------------------------------------------------------
 
@@ -173,9 +209,10 @@ async function renderCreator(req, res, extra = {}) {
     ? await db.one('SELECT * FROM snapshot_totals WHERE run_id = $1 AND creator_id = $2', [run.id, c.id])
     : null;
 
-  // Die Kontodaten werden hier vollständig gezeigt – ohne sie lässt sich die
-  // Überweisung nicht auslösen. In der Creator-Liste stehen sie bewusst nicht.
-  const bank = await payout.load(c.id);
+  // Kontodaten sieht nur der Inhaber. Für Creator Success sind sie ohne
+  // Nutzen, und was nicht geladen wird, kann auch nicht versehentlich in einer
+  // Vorlage landen (Art. 5 Abs. 1 lit. c DSGVO, Datenminimierung).
+  const bank = req.admin.role === 'owner' ? await payout.load(c.id) : null;
 
   // Marken und die bereits vergebenen Codes – daraus baut die Seite das
   // Zuweisungsformular und die Liste der Links.
@@ -373,7 +410,7 @@ router.post('/creators/:id/reject', async (req, res) => {
   );
   if (!c) return res.redirect('/admin/creators');
 
-  await db.log(config.adminName, 'creator.rejected', c.email, reason);
+  await db.log(actor(req), 'creator.rejected', c.email, reason);
   await mailer
     .send({ to: c.email, ...mailer.templates.rejected(c) })
     .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
@@ -395,7 +432,7 @@ router.post('/creators/:id/update', async (req, res) => {
     [status, String(req.body.note_internal || '').slice(0, 2000) || null, id]
   );
 
-  await db.log(config.adminName, 'creator.updated', String(id), `Status ${status}`);
+  await db.log(actor(req), 'creator.updated', String(id), `Status ${status}`);
   res.redirect(
     `/admin/creators/${id}?ok=${encodeURIComponent('Gespeichert. Wirkt im Creator-Dashboard nach dem nächsten Lauf.')}`
   );
@@ -465,7 +502,7 @@ router.post('/brands', async (req, res) => {
         WHERE id=$9`,
       [...params, editingId]
     );
-    await db.log(config.adminName, 'brand.updated', values.slug, values.name);
+    await db.log(actor(req), 'brand.updated', values.slug, values.name);
   } else {
     await db.run(
       `INSERT INTO brands (name, slug, shop_url, link_template,
@@ -473,7 +510,7 @@ router.post('/brands', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       params
     );
-    await db.log(config.adminName, 'brand.created', values.slug, values.name);
+    await db.log(actor(req), 'brand.created', values.slug, values.name);
   }
 
   res.redirect(`/admin/brands?ok=${encodeURIComponent(`Marke „${values.name}“ gespeichert.`)}`);
@@ -484,13 +521,13 @@ router.post('/brands', async (req, res) => {
  * Damit funktioniert das Portal auch ohne SMTP-Zugang: Ihr kopiert den Link
  * und schickt ihn dem Creator über den Kanal, über den ihr ohnehin schreibt.
  */
-router.post('/creators/:id/login-link', async (req, res) => {
+router.post('/creators/:id/login-link', auth.requireRole('owner'), async (req, res) => {
   const c = await db.one('SELECT * FROM creators WHERE id = $1', [req.params.id]);
   if (!c) return res.redirect('/admin/creators');
 
   const token = await auth.createLoginToken(c.id);
   const url = `${config.baseUrl}/login/${token}`;
-  await db.log(config.adminName, 'creator.login_link', c.email, 'manuell erzeugt');
+  await db.log(actor(req), 'creator.login_link', c.email, 'manuell erzeugt');
 
   return renderCreator(req, res, { loginLink: url });
 });
@@ -701,7 +738,7 @@ router.post('/payouts', async (req, res) => {
     [creatorId, period, Math.round(amount * 100) / 100, status, status === 'paid' ? localDate() : null]
   );
 
-  await db.log(config.adminName, 'payout.saved', String(creatorId), `${period}: ${amount} (${status})`);
+  await db.log(actor(req), 'payout.saved', String(creatorId), `${period}: ${amount} (${status})`);
   res.redirect(`/admin/creators/${creatorId}?ok=${encodeURIComponent('Auszahlung gespeichert.')}`);
 });
 
@@ -711,6 +748,71 @@ router.post('/payouts/:id/paid', async (req, res) => {
     req.params.id,
   ]);
   res.redirect(`/admin/payouts?ok=${encodeURIComponent('Als ausgezahlt markiert.')}`);
+});
+
+// --- Zugänge -----------------------------------------------------------------
+//  Der Pfad /team ist weiter oben bereits auf den Inhaber beschränkt.
+
+async function renderTeam(req, res, extra = {}) {
+  res.render('admin/team', {
+    title: 'Zugänge',
+    nav: 'admin-team',
+    rows: await adminUsers.all(),
+    roles: adminUsers.ROLES,
+    roleLabel: adminUsers.roleLabel,
+    values: {},
+    errors: {},
+    flash: req.query.ok || null,
+    ...extra,
+  });
+}
+
+router.get('/team', (req, res) => renderTeam(req, res));
+
+router.post('/team', async (req, res) => {
+  const { values, errors } = adminUsers.validate(req.body);
+
+  if (!errors.email && (await adminUsers.emailTaken(values.email_norm))) {
+    errors.email = 'Für diese Adresse gibt es schon einen Zugang.';
+  }
+
+  if (Object.keys(errors).length) {
+    return res.status(400).render('admin/team', {
+      title: 'Zugänge',
+      nav: 'admin-team',
+      rows: await adminUsers.all(),
+      roles: adminUsers.ROLES,
+      roleLabel: adminUsers.roleLabel,
+      values,
+      errors,
+      flash: null,
+    });
+  }
+
+  const created = await adminUsers.create(values, req.body.password);
+  // Bewusst ohne das Passwort im Protokoll – dort steht nur, dass es passiert ist.
+  await db.log(actor(req), 'admin.user.created', created.email, adminUsers.roleLabel(created.role));
+
+  res.redirect(
+    `/admin/team?ok=${encodeURIComponent(
+      `Zugang für ${created.name} angelegt. Gib ihm das Passwort persönlich weiter.`
+    )}`
+  );
+});
+
+router.post('/team/:id/aktiv', async (req, res) => {
+  const user = await adminUsers.byId(req.params.id);
+  if (!user) return res.redirect('/admin/team');
+
+  const active = req.body.active === '1';
+  await adminUsers.setActive(user.id, active);
+  await db.log(actor(req), active ? 'admin.user.enabled' : 'admin.user.disabled', user.email, null);
+
+  res.redirect(
+    `/admin/team?ok=${encodeURIComponent(
+      active ? `${user.name} ist wieder freigeschaltet.` : `${user.name} ist gesperrt.`
+    )}`
+  );
 });
 
 // --- Akquise -----------------------------------------------------------------
@@ -762,7 +864,7 @@ router.post('/leads', async (req, res) => {
     });
   }
 
-  await db.log(config.adminName, 'lead.added', String(result.added), `${result.handles.length} eingegeben`);
+  await db.log(actor(req), 'lead.added', String(result.added), `${result.handles.length} eingegeben`);
 
   const parts = [`${result.added} neu`];
   if (result.skipped) parts.push(`${result.skipped} schon vorhanden`);
@@ -782,7 +884,7 @@ router.post('/leads/:id/loeschen', async (req, res) => {
   if (!lead) return res.redirect('/admin/leads');
 
   await leadsLib.remove(lead.id);
-  await db.log(config.adminName, 'lead.deleted', lead.instagram, null);
+  await db.log(actor(req), 'lead.deleted', lead.instagram, null);
   res.redirect(`/admin/leads?ok=${encodeURIComponent(`@${lead.instagram} entfernt.`)}`);
 });
 

@@ -9,7 +9,11 @@
 <title><%= program.brand %> – Affiliate-Programm für Creator</title>
 <meta name="description" content="<%= program.brand %> ist das Affiliate-Netzwerk für Creator in der Fitnessbranche. Ein Zugang, mehrere Marken, ein eigener Rabattcode und ein Dashboard, das zeigt, was deine Reichweite wirklich wert ist.">
 
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="<%= asset('/landing.css') %>">
+<%# Nimmt die Kampagnenkennung (?src=…) in die Bewerbungslinks mit – nötig, seit
+    die Startseite statisch vom CDN kommt. %>
+<script src="<%= asset('/landing.js') %>" defer></script>
 </head>
 <body>
 

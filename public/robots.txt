@@ -1,0 +1,4 @@
+# Die Seite ist noch nicht für Suchmaschinen freigegeben (siehe noindex im Kopf).
+# Die Datei liegt statisch auf dem CDN, damit Crawler nicht die Function wecken.
+User-agent: *
+Disallow: /

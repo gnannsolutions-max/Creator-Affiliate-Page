@@ -25,18 +25,20 @@ const LIMITS = {
 // --- Startseite --------------------------------------------------------------
 
 /**
- * Die Startseite ist die Landingpage, nicht das Formular. Wer über einen
- * Kampagnenlink kommt (`/?src=…`), soll die Kennung trotzdem bis zur Bewerbung
- * behalten – deshalb wird sie an jeden Bewerbungs-Button angehängt.
+ * Die Startseite ist die Landingpage, nicht das Formular. Die Bewerbung läuft
+ * über das externe Onboarding unter apply.buzzing.io – alle Bewerbungs-Buttons
+ * der Startseite führen direkt dorthin. Das interne Formular /bewerben bleibt
+ * erreichbar (Login-Seite, Navigation), ist aber nicht mehr der Hauptweg.
  */
+const APPLY_URL = process.env.APPLY_URL || 'https://apply.buzzing.io';
+
 router.get('/', (req, res) => {
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
-  const src = String(req.query.src || '').slice(0, 60);
   res.render('home', {
     // home.ejs bringt Kopfbereich und Titel selbst mit und bindet die Partials
     // bewusst nicht ein – die Landingpage hat ein eigenes Erscheinungsbild.
     nav: 'home',
-    applyUrl: src ? `/bewerben?src=${encodeURIComponent(src)}` : '/bewerben',
+    applyUrl: APPLY_URL,
     partners: partners.all(),
   });
 });

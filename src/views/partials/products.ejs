@@ -1,0 +1,188 @@
+<!-- Produktsektion "Unsere neuesten Produkte" (Hytovia).
+     Wird in home.ejs eingebunden. Bilder: public/products/<slug>.jpg -->
+<style>
+#snc-page .snc-prod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+#snc-page .snc-prod{
+  background:linear-gradient(180deg,var(--snc-bg-3),var(--snc-bg-2));
+  border:1px solid var(--snc-line);border-radius:var(--snc-radius);
+  padding:14px 14px 20px;display:flex;flex-direction:column;
+  transition:border-color .2s ease,transform .2s ease;
+}
+#snc-page .snc-prod:hover{border-color:var(--snc-line-strong);transform:translateY(-3px);}
+#snc-page .snc-prod-img{
+  position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;
+  background:#FAFAFA;display:grid;place-items:center;margin-bottom:16px;
+}
+#snc-page .snc-prod-img img{width:100%;height:100%;object-fit:contain;}
+#snc-page .snc-prod-ph{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  color:#A9AFB2;font-size:.82rem;font-weight:500;
+}
+#snc-page .snc-prod-ph svg{width:26px;height:26px;}
+#snc-page .snc-prod-badge{
+  position:absolute;top:10px;right:10px;
+  font-size:11px;font-weight:600;letter-spacing:.02em;
+  padding:5px 10px;border-radius:999px;
+  background:rgba(10,12,14,.82);color:#E8ECEA;backdrop-filter:blur(6px);
+}
+#snc-page .snc-prod--out .snc-prod-img img{filter:grayscale(.55);opacity:.62;}
+#snc-page .snc-prod--out .snc-prod-cat,#snc-page .snc-prod--out h3{opacity:.72;}
+#snc-page .snc-prod-cat{
+  display:block;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--snc-muted);margin-bottom:6px;padding:0 2px;
+}
+#snc-page .snc-prod h3{font-size:1rem;letter-spacing:-.015em;padding:0 2px;margin:0;}
+#snc-page .snc-prod-note{margin-top:26px;font-size:.92rem;color:var(--snc-muted);max-width:70ch;}
+@media (max-width:960px){
+  #snc-page .snc-prod-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media (max-width:640px){
+  #snc-page .snc-prod-grid{grid-template-columns:repeat(2,1fr);gap:12px;}
+  #snc-page .snc-prod{padding:10px 10px 16px;}
+  #snc-page .snc-prod h3{font-size:.92rem;}
+}
+</style>
+
+<!-- ==================== PRODUKTE ==================== -->
+<section class="snc-sec snc-sec--tight" id="produkte" aria-labelledby="produkte-titel">
+  <div class="snc-wrap">
+    <div class="snc-sec-head">
+      <span class="snc-kicker">Hytovia</span>
+      <h2 id="produkte-titel">Unsere neuesten Produkte</h2>
+      <p class="snc-lead">
+        Ein Auszug aus dem Sortiment, das du als Partner bewerben kannst: Gym-Essentials,
+        Content-Equipment und digitale Produkte für Menschen, die ohnehin schon im Gym
+        stehen und ihren Content ernst nehmen.
+      </p>
+    </div>
+
+    <div class="snc-prod-grid">
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/anti-slip-grips.jpg" alt="Hytovia Anti-Slip-Grips" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Anti-Slip-Grips</h3>
+      </article>
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/lifting-straps.jpg" alt="Hytovia Lifting Straps" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Lifting Straps</h3>
+      </article>
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/mini-tripod.jpg" alt="Hytovia Mini Tripod" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Content</span>
+        <h3>Mini Tripod</h3>
+      </article>
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/neutral-hooks.jpg" alt="Hytovia Neutral Hooks" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Neutral Hooks</h3>
+      </article>
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/spring-pin.jpg" alt="Hytovia Spring-Pin" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Spring-Pin</h3>
+      </article>
+
+      <article class="snc-prod">
+        <div class="snc-prod-img"><img src="/products/wrist-straps.jpg" alt="Hytovia Wrist Straps" loading="lazy" decoding="async"></div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Wrist Straps</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/ai-influencer-blueprint.jpg" alt="Hytovia AI Influencer Blueprint" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Digital</span>
+        <h3>AI Influencer Blueprint</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/grand-posing-presets.jpg" alt="Hytovia Grand Posing Presets" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Digital</span>
+        <h3>Grand Posing Presets</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/posingscreen.jpg" alt="Hytovia PosingScreen" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Content</span>
+        <h3>PosingScreen</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/posinglamp.jpg" alt="Hytovia PosingLamp" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Content</span>
+        <h3>PosingLamp®</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/posinglamp-suction-mount.jpg" alt="Hytovia PosingLamp Suction Mount" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Content</span>
+        <h3>PosingLamp Suction Mount</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img">
+          <span class="snc-prod-ph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4 17l4.5-4.5 4 4L16 13l4 4"/></svg>
+            Bild folgt
+          </span>
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Content</span>
+        <h3>Magnetic Phone Mount</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/magnetic-gym-bag.jpg" alt="Hytovia Magnetic Gym Bag" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Zubehör</span>
+        <h3>Magnetic Gym Bag</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/mini-powder-jar.jpg" alt="Hytovia Mini Powder Jar" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Zubehör</span>
+        <h3>Mini Powder Jar</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/forearm-trainer.jpg" alt="Hytovia Portable Forearm Trainer" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Training</span>
+        <h3>Portable Forearm Trainer</h3>
+      </article>
+
+      <article class="snc-prod snc-prod--out">
+        <div class="snc-prod-img"><img src="/products/led-face-mask.jpg" alt="Hytovia LED Face Mask" loading="lazy" decoding="async">
+          <span class="snc-prod-badge">Bald wieder da</span>
+        </div>
+        <span class="snc-prod-cat">Recovery</span>
+        <h3>LED Face Mask</h3>
+      </article>
+
+    </div>
+
+    <p class="snc-prod-note">
+      Das Sortiment wird laufend erweitert. Ausverkaufte Artikel gehen in die Nachproduktion –
+      als Partner erfährst du vor dem Restock, wann was wieder verfügbar ist.
+    </p>
+  </div>
+</section>

@@ -25,6 +25,7 @@
     "nodemailer",
     "multer",
     "@netlify/database",
+    "mysql2",
   ]
   # Die EJS-Templates gehören ins Function-Bundle, sonst findet Express keine Views.
   # Stylesheets und landing.js kommen mit, obwohl sie das CDN ausliefert: Die

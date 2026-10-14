@@ -1,0 +1,59 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Shop-Datenbank</h1>
+    <p>Lesender Blick in die Datenbank des Shops – Tabellen, Spalten und Beispielzeilen. Daraus wird der automatische Bestellabgleich gebaut.</p>
+  </div>
+
+  <% if (!configured) { %>
+    <div class="note note--warn"><p><strong>Nicht konfiguriert.</strong> In Netlify fehlen SHOP_DB_HOST, SHOP_DB_USER oder SHOP_DB_PASSWORD.</p></div>
+  <% } else if (error) { %>
+    <div class="note note--danger"><p><strong>Verbindung fehlgeschlagen:</strong> <%= error %></p>
+    <p class="small">Server <span class="mono"><%= settings.host %>:<%= settings.port %></span>, Benutzer <span class="mono"><%= settings.user %></span>.</p></div>
+  <% } else if (result) { %>
+    <div class="note note--good"><p><strong>Verbunden</strong> mit <span class="mono"><%= settings.host %>:<%= settings.port %></span> als <span class="mono"><%= settings.user %></span>.</p></div>
+
+    <div class="card">
+      <h2>Datenbanken</h2>
+      <% if (!result.databases.length) { %><p class="empty">Keine sichtbar – der Benutzer hat vermutlich nur auf eine bestimmte Datenbank Rechte.</p><% } %>
+      <p>
+        <% result.databases.forEach(function (d) { %>
+          <a class="btn btn--sm <%= d === result.database ? '' : 'btn--ghost' %>" href="/admin/shop-db?db=<%= encodeURIComponent(d) %>"><%= d %></a>
+        <% }); %>
+      </p>
+      <% if (!result.database) { %><p class="small muted">Bitte eine Datenbank anklicken.</p><% } %>
+    </div>
+
+    <% result.tables.forEach(function (t) { %>
+    <div class="card card--flush">
+      <div class="card-head">
+        <h2><span class="mono"><%= t.name %></span></h2>
+        <span class="sub">ca. <%= num(t.approx_rows || 0) %> Zeilen<%= t.comment ? ' · ' + t.comment : '' %></span>
+      </div>
+      <div class="card-body">
+        <p class="small mono" style="word-break:break-word">
+          <%= t.columns.map(function (c) { return c.name + ' (' + c.type + ')'; }).join(' · ') %>
+        </p>
+      </div>
+      <% if (t.sampleError) { %>
+        <div class="card-body"><p class="small muted">Beispielzeilen nicht lesbar: <%= t.sampleError %></p></div>
+      <% } else if (t.sample.length) { %>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><% t.columns.forEach(function (c) { %><th class="small"><%= c.name %></th><% }); %></tr></thead>
+          <tbody>
+            <% t.sample.forEach(function (row) { %>
+            <tr><% t.columns.forEach(function (c) { var v = row[c.name]; %><td class="small mono"><%= v === null || v === undefined ? '' : String(v).slice(0, 80) %></td><% }); %></tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+    <% }); %>
+    <% if (result.truncated) { %><p class="small muted">Es gibt mehr Tabellen, als hier angezeigt werden.</p><% } %>
+  <% } %>
+</main>
+
+<%- include('../partials/foot') %>

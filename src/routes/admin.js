@@ -13,6 +13,7 @@ const brandsLib = require('../lib/brands');
 const leadsLib = require('../lib/leads');
 const adminUsers = require('../lib/adminUsers');
 const { importAnyCsv } = require('../services/importSales');
+const shopDb = require('../lib/shopDb');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays, nextRefreshLabel } = require('../lib/dates');
 
@@ -96,7 +97,7 @@ router.use(auth.requireAdmin);
 // vorbehalten – Geld, Konditionen und Zugänge. Die Prüfung hängt am Pfad und
 // nicht an den Routen einzeln, damit beim Nachrüsten einer Route niemand
 // vergisst, sie abzusichern.
-router.use(['/brands', '/import', '/payouts', '/mails', '/team'], auth.requireRole('owner'));
+router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db'], auth.requireRole('owner'));
 
 /** Wer die Aktion ausgelöst hat – steht so im Protokoll. */
 const actor = (req) => (req.admin && req.admin.name) || config.adminName;
@@ -614,6 +615,33 @@ router.post('/import', upload.single('file'), async (req, res) => {
     brandList,
     selectedBrand: brand.id,
     imports: await db.many(IMPORT_LIST),
+  });
+});
+
+// --- Shop-Datenbank: Diagnose ------------------------------------------------
+//
+//  Zeigt, was in der Datenbank des Shops steht: Tabellen, Spalten, ein paar
+//  Beispielzeilen. Dient dazu, die Bestelltabelle und die Spalten für
+//  Creatorname, Prozentsatz und Nettoumsatz zu finden. Reiner Lesezugriff.
+
+router.get('/shop-db', async (req, res) => {
+  const database = String(req.query.db || '').trim() || null;
+  let result = null;
+  let error = null;
+  if (shopDb.isConfigured()) {
+    try {
+      result = await shopDb.inspect({ database });
+    } catch (err) {
+      error = err.message;
+    }
+  }
+  res.render('admin/shop-db', {
+    title: 'Shop-Datenbank',
+    nav: 'admin-import',
+    configured: shopDb.isConfigured(),
+    settings: { ...shopDb.settings(), password: undefined },
+    result,
+    error,
   });
 });
 

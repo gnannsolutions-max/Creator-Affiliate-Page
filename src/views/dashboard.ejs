@@ -13,59 +13,17 @@
   </div>
 
 
-  <% brandCards.forEach(function (b) { %>
-    <div class="card">
-      <div class="card-head" style="padding:0 0 12px">
-        <h2><%= b.brand_name %></h2>
-        <% if (b.code) { %><span class="sub"><%= percent(b.commission_rate) %> Provision · <%= percent(b.customer_discount) %> Rabatt für deine Community</span><% } %>
-      </div>
-
-      <% if (b.code) { %>
-      <div class="field" style="margin-bottom:12px">
-        <label for="link_<%= b.brand_id %>">Dein Link – den postest du</label>
-        <div class="code-display" style="gap:10px">
-          <div style="min-width:0;flex:1">
-            <div class="mono" id="link_<%= b.brand_id %>" style="word-break:break-all;font-size:13px"><%= b.link %></div>
-          </div>
-          <button class="btn btn--sm" type="button" data-copy="<%= b.link %>">Link kopieren</button>
-        </div>
-      </div>
-
-      <div class="code-display">
-        <div>
-          <div class="stat-label">Dein Code</div>
-          <div class="code-value" style="font-size:22px"><%= b.code %></div>
-        </div>
-        <% if (b.totals) { %>
-          <div>
-            <div class="stat-label">Umsatz 30 Tage</div>
-            <div class="stat-value" style="font-size:20px"><%= money(b.totals.revenue_30d) %></div>
-          </div>
-          <div>
-            <div class="stat-label">Deine Provision 30 Tage</div>
-            <div class="stat-value" style="font-size:20px"><%= money(b.totals.commission_30d) %></div>
-          </div>
-        <% } %>
-        <button class="btn btn--ghost btn--sm" type="button" data-copy="<%= b.code %>" style="margin-left:auto">Code kopieren</button>
-      </div>
-
-      <p class="small muted" style="margin:12px 0 0">
-        Falls jemand lieber selbst tippt: Der Code funktioniert im Warenkorb genauso. Zugeordnet wird beides.
-      </p>
-      <% } else if (b.totals) { %>
-      <div class="code-display">
-        <div>
-          <div class="stat-label">Umsatz 30 Tage</div>
-          <div class="stat-value" style="font-size:20px"><%= money(b.totals.revenue_30d) %></div>
-        </div>
-        <div>
-          <div class="stat-label">Deine Provision 30 Tage</div>
-          <div class="stat-value" style="font-size:20px"><%= money(b.totals.commission_30d) %></div>
-        </div>
-      </div>
-      <% } %>
+  <% if (brandCards.length > 1) { %>
+  <div class="stats">
+    <% brandCards.forEach(function (b) { %>
+    <div class="stat">
+      <div class="stat-label"><%= b.brand_name %> · 30 Tage</div>
+      <div class="stat-value"><%= money(b.totals ? b.totals.revenue_30d : 0) %></div>
+      <div class="stat-sub">Provision <%= money(b.totals ? b.totals.commission_30d : 0) %></div>
     </div>
-  <% }); %>
+    <% }); %>
+  </div>
+  <% } %>
 
 
   <% if (!totals) { %>
@@ -153,16 +111,5 @@
 
 </main>
 
-<script>
-document.addEventListener('click', function (e) {
-  var btn = e.target.closest('[data-copy]');
-  if (!btn) return;
-  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
-    var old = btn.textContent;
-    btn.textContent = 'Kopiert';
-    setTimeout(function () { btn.textContent = old; }, 1600);
-  });
-});
-</script>
 
 <%- include('partials/foot') %>

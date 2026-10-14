@@ -48,7 +48,7 @@
             </td>
             <td class="mono">
               <%= c.requested_code %>
-              <% if (c.status === 'pending') { %><br><span class="small muted">Wunsch</span><% } %>
+              <% if (c.status === 'pending') { %><br><span class="small muted">beantragt</span><% } %>
             </td>
             <td>
               <span class="badge badge--<%= c.status === 'approved' ? 'good' : (c.status === 'pending' ? 'warn' : (c.status === 'paused' ? 'neutral' : 'danger')) %>"><%= statusLabel(c.status) %></span>

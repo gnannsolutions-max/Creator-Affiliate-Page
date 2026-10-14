@@ -139,6 +139,24 @@ function mapOrder(order, lk, opts) {
     }
   }
 
+  // Creator-Kennung aus dem Link: utm_source=Creator12. WooCommerce schreibt
+  // sie automatisch als _wc_order_attribution_utm_source an die Bestellung.
+  // Die Kennung ist zugleich der Code des Creators im Portal.
+  if (!creatorId) {
+    const utm = metaValue(order, '_wc_order_attribution_utm_source') || metaValue(order, '_wc_order_attribution_utm_campaign');
+    const norm = String(utm || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (/^CREATOR[0-9]+$/.test(norm)) {
+      const hit = lk.byCode.get(norm);
+      creatorName = utm;
+      if (hit) {
+        creatorId = hit.creator_id;
+        rate = hit.commission_rate;
+        codeNorm = norm;
+        via = 'utm';
+      }
+    }
+  }
+
   if (!creatorId && opts.creatorMeta) {
     const raw = metaValue(order, opts.creatorMeta);
     if (raw) {
@@ -208,7 +226,7 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
 
   const rows = [];
   const problems = [];
-  const stats = { byCode: 0, byMeta: 0, unassigned: 0, unknownNames: new Map() };
+  const stats = { byCode: 0, byUtm: 0, byMeta: 0, unassigned: 0, unknownNames: new Map() };
   for (const o of orders) {
     const m = mapOrder(o, lk, opts);
     if (m.skip) {
@@ -217,6 +235,7 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
     }
     rows.push(m.row);
     if (m.via === 'code') stats.byCode += 1;
+    else if (m.via === 'utm') stats.byUtm += 1;
     else if (m.via === 'meta') stats.byMeta += 1;
     else {
       stats.unassigned += 1;
@@ -280,6 +299,7 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
     inserted: result.inserted,
     updated: result.updated,
     byCode: stats.byCode,
+    byUtm: stats.byUtm,
     byMeta: stats.byMeta,
     unassigned: stats.unassigned,
     unknownNames: [...stats.unknownNames.entries()].map(([name, count]) => ({ name, count })),

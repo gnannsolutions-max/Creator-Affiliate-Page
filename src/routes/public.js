@@ -48,7 +48,7 @@ router.get('/', (req, res) => {
 router.get('/bewerben', (req, res) => {
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
   res.render('apply', {
-    title: 'Creator-Code beantragen',
+    title: 'Als Creator bewerben',
     nav: 'apply',
     values: {},
     errors: {},
@@ -63,7 +63,7 @@ router.post('/bewerben', async (req, res) => {
   if (!gate.allowed) {
     res.set('Retry-After', String(gate.retryAfter));
     return res.status(429).render('apply', {
-      title: 'Creator-Code beantragen',
+      title: 'Als Creator bewerben',
       nav: 'apply',
       values: {},
       errors: {
@@ -77,7 +77,7 @@ router.post('/bewerben', async (req, res) => {
 
   if (Object.keys(errors).length) {
     return res.status(400).render('apply', {
-      title: 'Creator-Code beantragen',
+      title: 'Als Creator bewerben',
       nav: 'apply',
       values: {
         ...values,
@@ -118,7 +118,7 @@ router.post('/bewerben', async (req, res) => {
     // Index greift, und wir zeigen dieselbe Meldung wie bei der Vorabprüfung.
     if (err.code === '23505') {
       return res.status(400).render('apply', {
-        title: 'Creator-Code beantragen',
+        title: 'Als Creator bewerben',
         nav: 'apply',
         values,
         errors: { email: 'Für diese E-Mail-Adresse liegt bereits eine Bewerbung vor.' },

@@ -70,3 +70,20 @@ test('Ohne Treffer bleibt die Bestellung gespeichert, aber niemandem zugeordnet'
   assert.strictEqual(m.row.creator_id, null);
   assert.strictEqual(m.row.creator_name, 'Code FREMD');
 });
+
+test('Zuordnung über utm_source=CreatorN aus dem Link', () => {
+  const lk2 = { byCode: new Map([['CREATOR12', { creator_id: 7, commission_rate: 30 }]]), byName: new Map(), byHandle: new Map() };
+  const o = { ...base, meta_data: [{ key: '_wc_order_attribution_utm_source', value: 'Creator12' }, { key: '_wc_order_attribution_utm_campaign', value: 'Agent1' }] };
+  const m = mapOrder(o, lk2, {});
+  assert.strictEqual(m.via, 'utm');
+  assert.strictEqual(m.row.creator_id, 7);
+  assert.strictEqual(m.row.commission_rate, 30);
+  assert.strictEqual(m.row.code_norm, 'CREATOR12');
+
+  const unknown = mapOrder({ ...base, meta_data: [{ key: '_wc_order_attribution_utm_source', value: 'Creator99' }] }, lk2, {});
+  assert.strictEqual(unknown.via, null);
+  assert.strictEqual(unknown.row.creator_name, 'Creator99', 'unbekannte Kennung wird gemerkt, damit sie im Import auffällt');
+
+  const tiktok = mapOrder({ ...base, meta_data: [{ key: '_wc_order_attribution_utm_source', value: 'tiktok.com' }] }, lk2, {});
+  assert.strictEqual(tiktok.via, null, 'eine normale Herkunft ist keine Creator-Kennung');
+});

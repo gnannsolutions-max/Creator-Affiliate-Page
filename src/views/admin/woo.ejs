@@ -10,7 +10,7 @@
     <% if (result.ok) { %>
       <div class="note note--good">
         <p><strong>Abgleich erledigt</strong> für <%= result.brand %>: <%= num(result.fetched) %> Bestellungen geholt<%= result.since ? ' (geändert seit ' + result.since.replace('T', ' ') + ')' : '' %>, <%= num(result.inserted) %> neu, <%= num(result.updated) %> aktualisiert.</p>
-        <p>Zugeordnet über Gutscheincode: <%= num(result.byCode) %> · über Zusatzfeld: <%= num(result.byMeta) %> · <strong>nicht zugeordnet: <%= num(result.unassigned) %></strong></p>
+        <p>Zugeordnet über Link (utm_source): <%= num(result.byUtm || 0) %> · über Gutscheincode: <%= num(result.byCode) %> · über Zusatzfeld: <%= num(result.byMeta) %> · <strong>nicht zugeordnet: <%= num(result.unassigned) %></strong></p>
         <% if (result.unknownNames && result.unknownNames.length) { %>
           <p class="small"><strong>Nicht zugeordnet:</strong> <%= result.unknownNames.map(function (u) { return u.name + ' (' + u.count + ')'; }).join(', ') %></p>
         <% } %>
@@ -54,7 +54,8 @@
     <div class="card">
       <h2>So werden Creator erkannt</h2>
       <ol class="small">
-        <li><strong>Gutscheincode</strong> der Bestellung = Code eines Creators im Portal (für diese Marke). Provisionssatz vom Code.</li>
+        <li><strong>Creator-Kennung im Link</strong>: Der Creator postet die Shop-Adresse mit <span class="mono">?utm_source=Creator12</span>. WooCommerce speichert das an der Bestellung; die Kennung ist der Code des Creators im Portal. Provisionssatz vom Code.</li>
+        <li><strong>Gutscheincode</strong> der Bestellung = Code eines Creators im Portal. Provisionssatz vom Code.</li>
         <li><strong>Zusatzfeld</strong> an der Bestellung: <% if (settings.creatorMeta) { %><span class="mono"><%= settings.creatorMeta %></span> – Wert wird als Creatorname oder Instagram-Handle verstanden.<% } else { %><em>nicht gesetzt</em> – in Netlify <span class="mono">WOO_CREATOR_META</span> auf den Feldnamen setzen, sobald bekannt (siehe Beispielbestellung unten).<% } %></li>
         <li><strong>Prozentsatz je Bestellung</strong>: <% if (settings.rateMeta) { %><span class="mono"><%= settings.rateMeta %></span><% } else { %><em>nicht gesetzt</em> – optional <span class="mono">WOO_RATE_META</span>; sonst gilt der Satz des Codes bzw. des Creators.<% } %></li>
       </ol>

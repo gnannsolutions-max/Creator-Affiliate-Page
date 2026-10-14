@@ -69,10 +69,10 @@ const templates = {
 
 danke für deine Bewerbung als Creator bei ${config.program.brand}.
 
-Dein Wunsch-Code: ${creator.requested_code}
+Deine Creator-Kennung: ${creator.requested_code}
 Instagram: @${creator.instagram}
 
-Wir prüfen deine Bewerbung und melden uns per E-Mail, sobald dein Code
+Wir prüfen deine Bewerbung und melden uns per E-Mail, sobald deine Kennung
 freigeschaltet ist. Erst danach darfst du mit der Bewerbung starten.
 
 Deinen Status kannst du jederzeit hier abrufen:
@@ -145,7 +145,7 @@ ${config.program.brand}`,
 
 Name:       ${creator.full_name}
 E-Mail:     ${creator.email}
-Wunsch-Code: ${creator.requested_code}
+Kennung:    ${creator.requested_code}
 Instagram:  @${creator.instagram}${creator.tiktok ? `\nTikTok:     @${creator.tiktok}` : ''}${
         creator.youtube ? `\nYouTube:    @${creator.youtube}` : ''
       }

@@ -9,11 +9,11 @@
   <div class="card">
     <% if (creator.status === 'pending') { %>
       <div class="note note--warn">
-        <p><strong>In Prüfung.</strong> Bitte warte mit der Bewerbung, bis dein Code freigegeben ist – vorher werden Bestellungen nicht dir zugeordnet.</p>
+        <p><strong>In Prüfung.</strong> Bitte warte mit der Bewerbung, bis deine Kennung freigegeben ist – vorher werden Bestellungen nicht dir zugeordnet.</p>
       </div>
       <div class="code-display">
         <div>
-          <div class="stat-label">Beantragter Code</div>
+          <div class="stat-label">Deine Creator-Kennung</div>
           <div class="code-value"><%= creator.requested_code %></div>
         </div>
         <span class="badge badge--warn">In Prüfung</span>

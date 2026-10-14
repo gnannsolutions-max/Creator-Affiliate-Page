@@ -18,6 +18,19 @@ const BLOCKED_SUBSTRINGS = [
 ];
 
 const CODE_RE = /^[A-Z0-9]{3,20}$/;
+// Die Kennung, die Creator von uns bekommen und in ihren Links verwenden:
+// „Creator“ plus Zahl, z. B. Creator12. Groß-/Kleinschreibung ist egal.
+const CREATOR_ID_RE = /^CREATOR[0-9]{1,6}$/;
+
+function isCreatorId(codeNorm) {
+  return CREATOR_ID_RE.test(String(codeNorm || ''));
+}
+
+/** „creator 12“, „Creator-12“, „CREATOR12“ → „Creator12“ (Anzeigeform). */
+function formatCreatorId(codeNorm) {
+  const m = String(codeNorm || '').match(/^CREATOR([0-9]+)$/);
+  return m ? `Creator${Number(m[1])}` : String(codeNorm || '');
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
 function normalizeCode(input) {
@@ -59,7 +72,7 @@ function validateHandle(value, platform) {
 }
 
 function codeIssue(codeNorm) {
-  if (!codeNorm) return 'Bitte gib einen Wunsch-Code an.';
+  if (!codeNorm) return 'Bitte gib deine Creator-Kennung an.';
   if (!CODE_RE.test(codeNorm)) {
     return 'Der Code darf nur Buchstaben und Ziffern enthalten und muss 3 bis 20 Zeichen lang sein.';
   }
@@ -143,11 +156,12 @@ async function validateApplication(body, { ip } = {}) {
     errors.email = 'Für diese E-Mail-Adresse liegt bereits eine Bewerbung vor.';
   }
 
-  const issue = codeIssue(codeNorm);
-  if (issue) {
-    errors.requested_code = issue;
+  if (!codeNorm) {
+    errors.requested_code = 'Bitte gib die Creator-Kennung ein, die du von uns bekommen hast (z. B. Creator12).';
+  } else if (!isCreatorId(codeNorm)) {
+    errors.requested_code = 'Die Kennung besteht aus dem Wort „Creator“ und deiner Nummer, z. B. Creator12. Bitte genau so eingeben, wie du sie von uns bekommen hast.';
   } else if (await codeTaken(codeNorm)) {
-    errors.requested_code = 'Dieser Code ist bereits vergeben oder reserviert. Bitte wähle einen anderen.';
+    errors.requested_code = 'Diese Creator-Kennung ist bereits vergeben. Bitte prüfe deine Nummer oder melde dich bei uns.';
   }
 
   if (!instagram) {
@@ -175,7 +189,7 @@ async function validateApplication(body, { ip } = {}) {
       full_name: fullName,
       email: String(body.email || '').trim(),
       email_norm: email,
-      requested_code: codeNorm,
+      requested_code: formatCreatorId(codeNorm),
       instagram,
       tiktok,
       youtube,
@@ -187,6 +201,8 @@ async function validateApplication(body, { ip } = {}) {
 }
 
 module.exports = {
+  isCreatorId,
+  formatCreatorId,
   RESERVED_CODES,
   BLOCKED_SUBSTRINGS,
   normalizeCode,

@@ -2,7 +2,7 @@
 
 <main class="wrap wrap--narrow">
   <div class="page-head">
-    <h1>Creator-Code beantragen</h1>
+    <h1>Als Creator bewerben</h1>
     <p>Du bekommst deinen eigenen Rabattcode, deine Community bekommt <%= program.defaultCustomerDiscount %> % Rabatt, und du siehst jeden Tag, was dein Code umgesetzt hat.</p>
   </div>
 
@@ -38,10 +38,10 @@
       </div>
 
       <div class="field">
-        <label for="requested_code">Wunsch-Code</label>
-        <p class="hint">3 bis 20 Zeichen, nur Buchstaben und Zahlen. Meistens der eigene Name – z. B. LUAN15.</p>
+        <label for="requested_code">Deine Creator-Kennung</label>
+        <p class="hint">Die Kennung hast du von uns bekommen – „Creator“ plus deine Nummer, z. B. <strong>Creator12</strong>. Sie steckt später in deinem Link.</p>
         <input type="text" id="requested_code" name="requested_code" required
-               style="text-transform:uppercase" maxlength="20" spellcheck="false"
+               placeholder="Creator12" maxlength="20" spellcheck="false"
                value="<%= values.requested_code || '' %>"
                <%= errors.requested_code ? 'aria-invalid="true"' : '' %>>
         <% if (errors.requested_code) { %><p class="field-error"><%= errors.requested_code %></p><% } %>
@@ -100,7 +100,7 @@
       </div>
       <% if (errors.accept_privacy) { %><p class="field-error" style="margin-top:-6px;margin-bottom:12px"><%= errors.accept_privacy %></p><% } %>
 
-      <button class="btn btn--wide" type="submit">Code beantragen</button>
+      <button class="btn btn--wide" type="submit">Bewerbung abschicken</button>
     </form>
   </div>
 

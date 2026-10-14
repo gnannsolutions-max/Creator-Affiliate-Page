@@ -17,12 +17,9 @@
   <div class="card">
     <h2>Login-Link für <%= c.full_name.split(' ')[0] %></h2>
     <p class="small muted">
-      <% if (hasSmtp) { %>
-        Zusätzlich zur E-Mail – falls du den Link direkt schicken willst.
-      <% } else { %>
-        Es ist kein SMTP-Zugang hinterlegt, also verschickt das Portal nichts. Schick diesen Link dem Creator selbst.
-      <% } %>
-      Er ist 30 Minuten gültig und lässt sich einmal verwenden.
+      Das Portal verschickt diesen Link nicht – gib ihn über euren eigenen Kanal weiter.
+      Er ist 30 Minuten gültig und lässt sich einmal verwenden. Danach meldet sich der Creator jederzeit selbst
+      über <%= baseUrl %>/login mit seiner E-Mail-Adresse an.
     </p>
     <div class="code-display">
       <div style="min-width:0;flex:1">
@@ -94,7 +91,8 @@
         </div>
       <% }); %>
       <div class="actions">
-        <button class="btn" type="submit">Freigeben und E-Mail mit den Links schicken</button>
+        <button class="btn" type="submit">Freigeben</button>
+        <span class="small muted" style="margin-left:12px">Es wird keine E-Mail verschickt. Der Creator sieht sein Dashboard ab sofort nach Login mit seiner E-Mail-Adresse.</span>
       </div>
     </form>
   </div>

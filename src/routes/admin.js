@@ -357,24 +357,14 @@ router.post('/creators/:id/approve', async (req, res) => {
     wanted.map((w) => `${w.brandName}: ${w.code} (${w.rate} %)`).join(', ')
   );
 
-  const token = await auth.createLoginToken(id);
-  const url = `${config.baseUrl}/login/${token}`;
-  const result = await mailer
-    .send({ to: updated.email, ...mailer.templates.approved(updated, url, wanted) })
-    .catch((err) => ({ sent: false, error: err.message }));
-
-  // Ohne SMTP bleibt die Seite stehen und zeigt den Link zum Kopieren an,
-  // statt eine Erfolgsmeldung über eine Mail auszugeben, die nie ankommt.
-  if (!result.sent) {
-    return renderCreator(req, res, {
-      loginLink: url,
-      flash: `Freigegeben für ${wanted.length} Marke(n).`,
-    });
-  }
-
+  // Die Freigabe verschickt bewusst KEINE E-Mail: Die Ansprache der Creator
+  // übernimmt eine andere Abteilung über ihre eigenen Kanäle. Der Creator hat
+  // ab jetzt ein Dashboard und kommt über /login mit seiner E-Mail-Adresse
+  // hinein; wer ihm den Zugang direkt schicken will, erzeugt auf dieser Seite
+  // einen Login-Link zum Kopieren.
   res.redirect(
     `/admin/creators/${id}?ok=${encodeURIComponent(
-      `Freigegeben für ${wanted.length} Marke(n), E-Mail mit den Links ist raus.`
+      `Freigegeben für ${wanted.length} Marke(n). Es wurde keine E-Mail verschickt – der Creator meldet sich über ${config.baseUrl}/login an, oder du erzeugst hier einen Login-Link zum Weitergeben.`
     )}`
   );
 });

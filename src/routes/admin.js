@@ -344,6 +344,7 @@ router.post('/creators/:id/approve', async (req, res) => {
   }
 
   await saveBrandAssignments(id, wanted);
+  const { claimed } = await claimOrphanSales(id, wanted);
 
   const updated = await db.one(
     `UPDATE creators
@@ -367,12 +368,46 @@ router.post('/creators/:id/approve', async (req, res) => {
   // einen Login-Link zum Kopieren.
   res.redirect(
     `/admin/creators/${id}?ok=${encodeURIComponent(
-      `Freigegeben für ${wanted.length} Marke(n). Es wurde keine E-Mail verschickt – der Creator meldet sich über ${config.baseUrl}/login an, oder du erzeugst hier einen Login-Link zum Weitergeben.`
+      `Freigegeben für ${wanted.length} Marke(n).${claimed ? ` ${claimed} bereits eingegangene Bestellung(en) mit dieser Kennung wurden übernommen.` : ''} Es wurde keine E-Mail verschickt – der Creator meldet sich über ${config.baseUrl}/login an, oder du erzeugst hier einen Login-Link zum Weitergeben.`
     )}`
   );
 });
 
 /** Marken und Konditionen eines bereits freigegebenen Creators ändern. */
+/**
+ * Nach dem Speichern von Codes: Bestellungen, die schon im Portal liegen, aber
+ * niemandem gehören, und deren Kennung/Code jetzt zu diesem Creator passt,
+ * werden ihm sofort zugeschrieben. Danach wird der Stand neu berechnet, damit
+ * das Dashboard nicht auf den nächsten Lauf wartet.
+ *
+ * Gilt für Zeilen aus dem Shop (creator_name trägt die utm-Kennung, code_norm
+ * den Gutscheincode) und für CSV-Uploads ohne Zuordnung.
+ */
+async function claimOrphanSales(creatorId, wanted) {
+  let claimed = 0;
+  for (const w of wanted) {
+    const codeNorm = String(w.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!codeNorm) continue;
+    const res = await db.many(
+      `UPDATE sales
+          SET creator_id = $1, commission_rate = COALESCE(commission_rate, $2), updated_at = now()
+        WHERE brand_id = $3 AND creator_id IS NULL
+          AND (code_norm = $4 OR UPPER(regexp_replace(COALESCE(creator_name, ''), '[^A-Za-z0-9]', '', 'g')) = $4)
+        RETURNING id`,
+      [creatorId, w.rate, w.brandId, codeNorm]
+    );
+    claimed += res.length;
+  }
+  let refreshed = false;
+  try {
+    await buildSnapshot({ triggeredBy: 'import' });
+    refreshed = true;
+  } catch (err) {
+    console.error('Snapshot nach Code-Änderung fehlgeschlagen:', err.message);
+  }
+  return { claimed, refreshed };
+}
+
 router.post('/creators/:id/codes', async (req, res) => {
   const id = req.params.id;
   const brandList = await brandsLib.all();
@@ -380,18 +415,19 @@ router.post('/creators/:id/codes', async (req, res) => {
   if (errors.length) return renderCreator(req, res, { error: errors.join(' ') });
 
   await saveBrandAssignments(id, wanted);
+  const { claimed, refreshed } = await claimOrphanSales(id, wanted);
   await db.log(
     config.adminName,
     'creator.codes.updated',
     String(id),
-    wanted.map((w) => `${w.brandName}: ${w.code}`).join(', ') || 'alle entfernt'
+    (wanted.map((w) => `${w.brandName}: ${w.code}`).join(', ') || 'alle entfernt') +
+      (claimed ? ` – ${claimed} bisher unzugeordnete Bestellungen übernommen` : '')
   );
 
-  res.redirect(
-    `/admin/creators/${id}?ok=${encodeURIComponent(
-      'Marken gespeichert. Die Zahlen ändern sich beim nächsten Lauf.'
-    )}`
-  );
+  const note = claimed
+    ? `Codes gespeichert. ${claimed} Bestellung${claimed === 1 ? '' : 'en'}, die bereits mit dieser Kennung eingegangen ${claimed === 1 ? 'war' : 'waren'}, ${claimed === 1 ? 'wurde' : 'wurden'} dem Creator zugeschrieben${refreshed ? ' – das Dashboard ist aktuell' : ''}.`
+    : `Codes gespeichert${refreshed ? ', Dashboard ist aktuell' : ''}. Ab jetzt zählen alle Bestellungen mit dieser Kennung für den Creator.`;
+  res.redirect(`/admin/creators/${id}?ok=${encodeURIComponent(note)}`);
 });
 
 router.post('/creators/:id/reject', async (req, res) => {

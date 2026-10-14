@@ -27,8 +27,6 @@
         <a href="/admin/logout">Abmelden<% if (admin.name) { %> <span class="muted">(<%= admin.name %>)</span><% } %></a>
       <% } else if (creator && creator.status === 'approved') { %>
         <a href="/dashboard" <%= nav === 'dashboard' ? 'class="is-active"' : '' %>>Dashboard</a>
-        <a href="/auszahlung" <%= nav === 'payout' ? 'class="is-active"' : '' %>>Auszahlung</a>
-        <a href="/regeln" <%= nav === 'rules' ? 'class="is-active"' : '' %>>Werberegeln</a>
         <a href="/logout">Abmelden</a>
       <% } else if (creator) { %>
         <a href="/status" <%= nav === 'status' ? 'class="is-active"' : '' %>>Status</a>

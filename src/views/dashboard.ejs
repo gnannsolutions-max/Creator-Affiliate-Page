@@ -12,19 +12,15 @@
     </p>
   </div>
 
-  <% if (!brandCards.length) { %>
-    <div class="note note--warn">
-      <p><strong>Dir ist noch keine Marke zugeordnet.</strong> Melde dich kurz bei uns, dann schalten wir dich frei.</p>
-    </div>
-  <% } %>
 
   <% brandCards.forEach(function (b) { %>
     <div class="card">
       <div class="card-head" style="padding:0 0 12px">
         <h2><%= b.brand_name %></h2>
-        <span class="sub"><%= percent(b.commission_rate) %> Provision · <%= percent(b.customer_discount) %> Rabatt für deine Community</span>
+        <% if (b.code) { %><span class="sub"><%= percent(b.commission_rate) %> Provision · <%= percent(b.customer_discount) %> Rabatt für deine Community</span><% } %>
       </div>
 
+      <% if (b.code) { %>
       <div class="field" style="margin-bottom:12px">
         <label for="link_<%= b.brand_id %>">Dein Link – den postest du</label>
         <div class="code-display" style="gap:10px">
@@ -56,22 +52,25 @@
       <p class="small muted" style="margin:12px 0 0">
         Falls jemand lieber selbst tippt: Der Code funktioniert im Warenkorb genauso. Zugeordnet wird beides.
       </p>
+      <% } else if (b.totals) { %>
+      <div class="code-display">
+        <div>
+          <div class="stat-label">Umsatz 30 Tage</div>
+          <div class="stat-value" style="font-size:20px"><%= money(b.totals.revenue_30d) %></div>
+        </div>
+        <div>
+          <div class="stat-label">Deine Provision 30 Tage</div>
+          <div class="stat-value" style="font-size:20px"><%= money(b.totals.commission_30d) %></div>
+        </div>
+      </div>
+      <% } %>
     </div>
   <% }); %>
 
-  <% if (!hasPayoutDetails) { %>
-    <div class="note note--warn">
-      <p>
-        <strong>Wir wissen noch nicht, wohin wir dein Geld überweisen sollen.</strong>
-        Trag deine Auszahlungsdaten ein, dann geht deine erste Abrechnung ohne Rückfrage raus.
-      </p>
-      <p><a class="btn btn--sm" href="/auszahlung">Auszahlungsdaten eintragen</a></p>
-    </div>
-  <% } %>
 
   <% if (!totals) { %>
     <div class="note note--info">
-      <p><strong>Noch keine Zahlen.</strong> Sobald über deinen Link oder Code die erste Bestellung eingeht, siehst du sie hier bei der nächsten Aktualisierung – spätestens <%= nextRefresh %>.</p>
+      <p><strong>Noch keine Zahlen.</strong> Sobald deine erste Bestellung eingespielt ist, siehst du sie hier – spätestens <%= nextRefresh %>.</p>
     </div>
   <% } else { %>
 
@@ -84,7 +83,7 @@
     <div class="stat">
       <div class="stat-label">Provision gesamt</div>
       <div class="stat-value"><%= money(totals.commission_total) %></div>
-      <div class="stat-sub"><%= money(totals.commission_open) %> davon offen</div>
+      <div class="stat-sub"><%= money(totals.commission_30d) %> in den letzten 30 Tagen</div>
     </div>
     <div class="stat">
       <div class="stat-label">Umsatz 30 Tage</div>
@@ -150,33 +149,8 @@
     <% } %>
   </div>
 
-  <div class="card card--flush">
-    <div class="card-head"><h2>Auszahlungen</h2></div>
-    <% if (!payouts.length) { %>
-      <div class="card-body"><p class="empty">Noch keine Auszahlung angelegt. Abgerechnet wird monatlich.</p></div>
-    <% } else { %>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>Zeitraum</th><th>Status</th><th class="num">Betrag</th><th>Ausgezahlt am</th></tr></thead>
-        <tbody>
-          <% payouts.forEach(function (p) { %>
-          <tr>
-            <td><%= p.period %></td>
-            <td><span class="badge badge--<%= p.status === 'paid' ? 'good' : 'neutral' %>"><%= statusLabel(p.status) %></span></td>
-            <td class="num"><%= money(p.amount) %></td>
-            <td><%= p.paid_at ? formatDateDe(p.paid_at) : '–' %></td>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-    <% } %>
-  </div>
   <% } %>
 
-  <div class="note note--info">
-    <p><strong>Kurz zur Erinnerung:</strong> Beiträge mit deinem Code immer als Werbung kennzeichnen, keine Heilversprechen, keine Krankheitsbezüge. Die vollständigen Regeln stehen unter <a href="/regeln">Werberegeln</a>.</p>
-  </div>
 </main>
 
 <script>

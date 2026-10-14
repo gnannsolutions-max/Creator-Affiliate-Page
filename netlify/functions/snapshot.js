@@ -18,6 +18,8 @@ const config = require('../../src/config');
 const db = require('../../src/db');
 const { buildSnapshot, hasRunForSlot, needsSafetyRun } = require('../../src/services/snapshot');
 const { localDate, localHourMinute } = require('../../src/lib/dates');
+const woo = require('../../src/lib/woo');
+const { syncWooOrders } = require('../../src/services/syncWoo');
 
 // Wie weit darf der Aufruf vom Slot entfernt sein? Netlify trifft die Minute
 // nicht immer exakt, und ein Slot wie 10:30 soll den Aufruf um 10:31 noch
@@ -51,7 +53,20 @@ exports.handler = async () => {
     return json(200, { skipped: true, reason: `Für ${day} ${slot.label} liegt bereits ein Lauf vor.` });
   }
 
-  const check = await needsSafetyRun(day);
+  // Ist WooCommerce angebunden, holt der Lauf zuerst die Bestellungen – dann
+  // ist der anschließende Snapshot auf jeden Fall nötig.
+  let sync = null;
+  if (woo.isConfigured()) {
+    try {
+      sync = await syncWooOrders({ actor: 'cron' });
+      console.log(`WooCommerce: ${sync.fetched} Bestellungen, ${sync.inserted} neu, ${sync.updated} aktualisiert.`);
+    } catch (err) {
+      console.error('WooCommerce-Abgleich fehlgeschlagen:', err.message);
+      sync = { ok: false, error: err.message };
+    }
+  }
+
+  const check = sync && sync.ok ? { needed: true, reason: 'Bestellungen aus WooCommerce geholt.' } : await needsSafetyRun(day);
   if (!check.needed) {
     // Nichts zu rechnen. Der zweite UTC-Termin desselben Slots landet hier
     // ebenfalls – das sind zwei kurze Abfragen, kein Snapshot.
@@ -61,7 +76,7 @@ exports.handler = async () => {
   try {
     const result = await buildSnapshot({ triggeredBy: 'cron', slot: slot.label });
     console.log(`Snapshot ${result.runId} (${slot.label}): ${result.creators} Creator, ${result.orders} Bestellungen.`);
-    return json(200, { ok: true, day, slot: slot.label, ...result });
+    return json(200, { ok: true, day, slot: slot.label, woo: sync, ...result });
   } catch (err) {
     console.error('Snapshot fehlgeschlagen:', err);
     return json(500, { ok: false, error: err.message });

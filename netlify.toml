@@ -16,7 +16,7 @@
   # Hostname und Benutzername sind keine Geheimnisse – der Port steht zwangs-
   # läufig im MySQL-Treiber und ließ den Build scheitern. Nur das Passwort
   # bleibt im Scan.
-  SECRETS_SCAN_OMIT_KEYS = "SHOP_DB_HOST,SHOP_DB_PORT,SHOP_DB_USER,SHOP_DB_NAME"
+  SECRETS_SCAN_OMIT_KEYS = "SHOP_DB_HOST,SHOP_DB_PORT,SHOP_DB_USER,SHOP_DB_NAME,WOO_URL,WOO_BRAND_ID,WOO_CREATOR_META,WOO_RATE_META"
 
 [functions]
   node_bundler = "esbuild"

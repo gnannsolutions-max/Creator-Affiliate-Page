@@ -138,6 +138,27 @@ muss `{"ok":true,…}` liefern.
 
 ---
 
+## WooCommerce-Anbindung (statt Upload)
+
+Ist der Shop angebunden, holen die Sicherheitsläufe um 10:30 und 17:30 Uhr die
+Bestellungen selbst aus WooCommerce – der CSV-Upload wird dann nicht mehr
+gebraucht, bleibt aber möglich. Dazu in Netlify setzen:
+
+| Variable | Wert |
+|----------|------|
+| `WOO_URL` | Adresse der WordPress-Seite, z. B. `https://shop.example.de` |
+| `WOO_CONSUMER_KEY` / `WOO_CONSUMER_SECRET` | Schlüssel aus WooCommerce → Einstellungen → Erweitert → REST-API (Berechtigung „Lesen“) |
+| `WOO_BRAND_ID` | nur bei mehreren aktiven Marken: die Marke dieses Shops |
+| `WOO_CREATOR_META` | optional: Name des Zusatzfelds an der Bestellung, das den Creator nennt (z. B. vom Affiliate-Plugin) |
+| `WOO_RATE_META` | optional: Zusatzfeld mit dem Prozentsatz je Bestellung |
+
+Creator werden über den Gutscheincode der Bestellung erkannt (Code im Portal),
+ersatzweise über das Zusatzfeld. Unter *Admin → WooCommerce* steht ein
+Verbindungstest, eine Beispielbestellung mit allen Zusatzfeldern und der
+Knopf „Jetzt abgleichen“.
+
+---
+
 ## Wann die Dashboards aktualisiert werden
 
 **Der Normalfall ist der Upload.** Ihr ladet die Bestellungen im Adminbereich

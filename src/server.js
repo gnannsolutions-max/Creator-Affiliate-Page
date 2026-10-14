@@ -10,6 +10,8 @@ const db = require('./db');
 const { createApp } = require('./app');
 const { buildSnapshot, needsSafetyRun } = require('./services/snapshot');
 const { localDate } = require('./lib/dates');
+const woo = require('./lib/woo');
+const { syncWooOrders } = require('./services/syncWoo');
 
 async function main() {
   await db.migrate();
@@ -30,7 +32,16 @@ async function main() {
       `${slot.minute} ${slot.hour} * * *`,
       async () => {
         try {
-          const check = await needsSafetyRun(localDate());
+          let synced = false;
+          if (woo.isConfigured()) {
+            try {
+              const r = await syncWooOrders({ actor: 'cron' });
+              synced = r.ok;
+            } catch (err) {
+              console.error('WooCommerce-Abgleich fehlgeschlagen:', err.message);
+            }
+          }
+          const check = synced ? { needed: true, reason: 'WooCommerce' } : await needsSafetyRun(localDate());
           if (!check.needed) {
             console.log(`[${new Date().toISOString()}] Sicherheitslauf ${slot.label} übersprungen: ${check.reason}`);
             return;

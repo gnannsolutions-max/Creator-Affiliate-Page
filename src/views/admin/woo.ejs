@@ -1,0 +1,116 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>WooCommerce</h1>
+    <p>Bestellungen kommen direkt aus dem Shop – automatisch bei jedem Sicherheitslauf (10:30 und 17:30 Uhr) und auf Knopfdruck hier.</p>
+  </div>
+
+  <% if (result) { %>
+    <% if (result.ok) { %>
+      <div class="note note--good">
+        <p><strong>Abgleich erledigt</strong> für <%= result.brand %>: <%= num(result.fetched) %> Bestellungen geholt<%= result.since ? ' (geändert seit ' + result.since.replace('T', ' ') + ')' : '' %>, <%= num(result.inserted) %> neu, <%= num(result.updated) %> aktualisiert.</p>
+        <p>Zugeordnet über Gutscheincode: <%= num(result.byCode) %> · über Zusatzfeld: <%= num(result.byMeta) %> · <strong>nicht zugeordnet: <%= num(result.unassigned) %></strong></p>
+        <% if (result.unknownNames && result.unknownNames.length) { %>
+          <p class="small"><strong>Nicht zugeordnet:</strong> <%= result.unknownNames.map(function (u) { return u.name + ' (' + u.count + ')'; }).join(', ') %></p>
+        <% } %>
+        <% if (result.snapshot && result.snapshot.ok) { %>
+          <p><strong>Dashboards aktualisiert:</strong> <%= num(result.snapshot.creators) %> Creator, <%= num(result.snapshot.orders) %> Bestellungen.</p>
+        <% } else if (result.snapshot) { %>
+          <p>Dashboards konnten nicht neu berechnet werden: <%= result.snapshot.error %></p>
+        <% } %>
+        <% if (result.problems && result.problems.length) { %><p class="small"><%= result.problems.slice(0, 10).join(' · ') %></p><% } %>
+      </div>
+    <% } else { %>
+      <div class="note note--danger"><p><strong>Abgleich fehlgeschlagen:</strong> <%= result.error || result.reason %></p></div>
+    <% } %>
+  <% } %>
+
+  <% if (!configured) { %>
+    <div class="note note--warn">
+      <p><strong>Noch nicht angebunden.</strong> In Netlify unter Environment variables eintragen:</p>
+      <p class="mono small">WOO_URL = https://adresse-des-shops.de<br>WOO_CONSUMER_KEY = ck_…<br>WOO_CONSUMER_SECRET = cs_…</p>
+      <p class="small">Die Schlüssel erzeugt der Shop unter WooCommerce → Einstellungen → Erweitert → REST-API → Schlüssel hinzufügen, Berechtigung „Lesen“. Nach dem Eintragen diese Seite neu laden.</p>
+    </div>
+  <% } else if (pingError) { %>
+    <div class="note note--danger">
+      <p><strong>Verbindung fehlgeschlagen:</strong> <%= pingError %></p>
+      <p class="small">Shop-Adresse laut Einstellung: <span class="mono"><%= settings.url %></span></p>
+    </div>
+  <% } else if (ping) { %>
+    <div class="note note--good">
+      <p><strong>Verbunden</strong> mit <span class="mono"><%= ping.storeUrl %></span><%= ping.wcVersion ? ' · WooCommerce ' + ping.wcVersion : '' %> · <%= num(ping.ordersTotal) %> Bestellungen im Shop.</p>
+    </div>
+
+    <div class="card">
+      <h2>Abgleich starten</h2>
+      <p class="small muted">Holt alle Bestellungen, die seit dem letzten Abgleich neu sind oder sich geändert haben (Storno, Erstattung), und berechnet die Dashboards neu. Beim allerersten Lauf: die letzten 90 Tage.</p>
+      <form method="post" action="/admin/woo/sync" class="actions">
+        <button class="btn" type="submit">Jetzt abgleichen</button>
+        <label class="small muted" style="margin-left:12px"><input type="checkbox" name="full" value="1"> alle Bestellungen (vollständig, kann dauern)</label>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>So werden Creator erkannt</h2>
+      <ol class="small">
+        <li><strong>Gutscheincode</strong> der Bestellung = Code eines Creators im Portal (für diese Marke). Provisionssatz vom Code.</li>
+        <li><strong>Zusatzfeld</strong> an der Bestellung: <% if (settings.creatorMeta) { %><span class="mono"><%= settings.creatorMeta %></span> – Wert wird als Creatorname oder Instagram-Handle verstanden.<% } else { %><em>nicht gesetzt</em> – in Netlify <span class="mono">WOO_CREATOR_META</span> auf den Feldnamen setzen, sobald bekannt (siehe Beispielbestellung unten).<% } %></li>
+        <li><strong>Prozentsatz je Bestellung</strong>: <% if (settings.rateMeta) { %><span class="mono"><%= settings.rateMeta %></span><% } else { %><em>nicht gesetzt</em> – optional <span class="mono">WOO_RATE_META</span>; sonst gilt der Satz des Codes bzw. des Creators.<% } %></li>
+      </ol>
+    </div>
+
+    <% if (sample) { %>
+    <div class="card card--flush">
+      <div class="card-head">
+        <h2>Beispielbestellung #<%= sample.id %></h2>
+        <span class="sub"><%= sample.date_created %> · Status <%= sample.status %> · Gesamt <%= sample.total %> <%= sample.currency %></span>
+      </div>
+      <div class="card-body">
+        <p class="small"><strong>Gutscheine:</strong> <%= (sample.coupon_lines || []).map(function (c) { return c.code; }).join(', ') || '– keine –' %></p>
+        <p class="small"><strong>Steuer:</strong> <%= sample.total_tax %> · <strong>Versand:</strong> <%= sample.shipping_total %> · <strong>Netto (berechnet):</strong> <%= (Number(sample.total||0) - Number(sample.total_tax||0) - Number(sample.shipping_total||0)).toFixed(2) %></p>
+        <p class="small"><strong>Positionen:</strong> <%= (sample.line_items || []).map(function (l) { return l.quantity + '× ' + l.name; }).join(', ') %></p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Zusatzfeld (meta_data)</th><th>Wert</th></tr></thead>
+          <tbody>
+            <% if (!(sample.meta_data || []).length) { %><tr><td colspan="2" class="small muted">Keine Zusatzfelder an dieser Bestellung.</td></tr><% } %>
+            <% (sample.meta_data || []).forEach(function (m) { %>
+              <tr><td class="mono small"><%= m.key %></td><td class="mono small"><%= typeof m.value === 'object' ? JSON.stringify(m.value).slice(0, 120) : String(m.value).slice(0, 120) %></td></tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-body"><p class="small muted">Steht hier ein Feld mit dem Creatornamen (z. B. vom Affiliate-Plugin), dessen Namen in Netlify als <span class="mono">WOO_CREATOR_META</span> eintragen.</p></div>
+    </div>
+    <% } %>
+  <% } %>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Letzte Abgleiche</h2></div>
+    <% if (!lastImports.length) { %>
+      <div class="card-body"><p class="empty">Noch kein Abgleich.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Zeitpunkt</th><th>Umfang</th><th class="num">Bestellungen</th><th class="num">Neu</th><th class="num">Aktualisiert</th><th>Nicht zugeordnet</th></tr></thead>
+        <tbody>
+          <% lastImports.forEach(function (i) { var open = []; try { open = JSON.parse(i.unknown_names || '[]'); } catch (e) {} %>
+          <tr>
+            <td class="small"><%= formatDateTimeDe(i.created_at) %></td>
+            <td class="small mono"><%= i.filename %></td>
+            <td class="num"><%= num(i.rows_total) %></td>
+            <td class="num"><%= num(i.rows_inserted) %></td>
+            <td class="num"><%= num(i.rows_updated) %></td>
+            <td class="small"><%= open.length ? open.map(function (u) { return u.name + ' (' + u.count + ')'; }).join(', ') : '–' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<%- include('../partials/foot') %>

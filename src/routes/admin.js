@@ -14,6 +14,8 @@ const leadsLib = require('../lib/leads');
 const adminUsers = require('../lib/adminUsers');
 const { importAnyCsv } = require('../services/importSales');
 const shopDb = require('../lib/shopDb');
+const woo = require('../lib/woo');
+const { syncWooOrders } = require('../services/syncWoo');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays, nextRefreshLabel } = require('../lib/dates');
 
@@ -97,7 +99,7 @@ router.use(auth.requireAdmin);
 // vorbehalten – Geld, Konditionen und Zugänge. Die Prüfung hängt am Pfad und
 // nicht an den Routen einzeln, damit beim Nachrüsten einer Route niemand
 // vergisst, sie abzusichern.
-router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db'], auth.requireRole('owner'));
+router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db', '/woo'], auth.requireRole('owner'));
 
 /** Wer die Aktion ausgelöst hat – steht so im Protokoll. */
 const actor = (req) => (req.admin && req.admin.name) || config.adminName;
@@ -616,6 +618,61 @@ router.post('/import', upload.single('file'), async (req, res) => {
     selectedBrand: brand.id,
     imports: await db.many(IMPORT_LIST),
   });
+});
+
+// --- WooCommerce -------------------------------------------------------------
+//
+//  Verbindung testen, eine Beispielbestellung ansehen (Gutscheine, Zusatzfelder)
+//  und den Abgleich von Hand anstoßen. Der automatische Abgleich läuft in den
+//  Sicherheitsläufen (10:30 / 17:30), siehe netlify/functions/snapshot.js.
+
+async function renderWoo(req, res, extra = {}) {
+  const configured = woo.isConfigured();
+  let ping = null;
+  let pingError = null;
+  let sample = null;
+  if (configured) {
+    try {
+      ping = await woo.ping();
+      const list = await woo.fetchOrders({ max: 1 });
+      sample = list[0] || null;
+    } catch (err) {
+      pingError = err.message;
+    }
+  }
+  const s = woo.settings();
+  res.render('admin/woo', {
+    title: 'WooCommerce',
+    nav: 'admin-import',
+    configured,
+    settings: { url: s.url, brandId: s.brandId, creatorMeta: process.env.WOO_CREATOR_META || '', rateMeta: process.env.WOO_RATE_META || '' },
+    ping,
+    pingError,
+    sample,
+    lastImports: await db.many(`SELECT * FROM imports WHERE import_kind = 'woo' ORDER BY id DESC LIMIT 10`),
+    result: null,
+    ...extra,
+  });
+}
+
+router.get('/woo', (req, res) => renderWoo(req, res));
+
+router.post('/woo/sync', async (req, res) => {
+  let result;
+  try {
+    result = await syncWooOrders({ actor: actor(req), full: Boolean(req.body && req.body.full) });
+    if (result.ok) {
+      try {
+        const snap = await buildSnapshot({ triggeredBy: 'import' });
+        result.snapshot = { ok: true, ...snap };
+      } catch (err) {
+        result.snapshot = { ok: false, error: err.message };
+      }
+    }
+  } catch (err) {
+    result = { ok: false, error: err.message };
+  }
+  return renderWoo(req, res, { result });
 });
 
 // --- Shop-Datenbank: Diagnose ------------------------------------------------

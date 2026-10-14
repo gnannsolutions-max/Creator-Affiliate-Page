@@ -12,6 +12,11 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Netlify sucht als „geheim“ markierte Werte im Build-Ergebnis. Port 3306,
+  # Hostname und Benutzername sind keine Geheimnisse – der Port steht zwangs-
+  # läufig im MySQL-Treiber und ließ den Build scheitern. Nur das Passwort
+  # bleibt im Scan.
+  SECRETS_SCAN_OMIT_KEYS = "SHOP_DB_HOST,SHOP_DB_PORT,SHOP_DB_USER,SHOP_DB_NAME"
 
 [functions]
   node_bundler = "esbuild"

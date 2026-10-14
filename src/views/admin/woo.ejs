@@ -60,6 +60,34 @@
       </ol>
     </div>
 
+    <% if (orders && orders.length) { %>
+    <div class="card card--flush">
+      <div class="card-head">
+        <h2>Bestellungen im Shop</h2>
+        <span class="sub">die letzten <%= orders.length %> – was steht an jeder dran?</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th>Datum</th><th>Status</th><th class="num">Gesamt</th><th>Gutschein</th><th>Herkunft</th><th>Kundenhinweis</th><th>Sonstige Felder</th></tr></thead>
+          <tbody>
+            <% orders.slice().reverse().forEach(function (o) { %>
+            <tr>
+              <td class="mono small"><%= o.id %></td>
+              <td class="small"><%= o.date %></td>
+              <td class="small"><%= o.status %></td>
+              <td class="num small"><%= o.total %> <%= o.currency %></td>
+              <td class="small mono"><%= o.coupons || '–' %></td>
+              <td class="small"><%= o.source || '–' %></td>
+              <td class="small"><%= o.note || '–' %></td>
+              <td class="small mono"><%= o.extra || '–' %></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% } %>
+
     <% if (sample) { %>
     <div class="card card--flush">
       <div class="card-head">

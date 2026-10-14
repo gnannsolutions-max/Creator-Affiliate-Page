@@ -631,11 +631,27 @@ async function renderWoo(req, res, extra = {}) {
   let ping = null;
   let pingError = null;
   let sample = null;
+  let orders = [];
   if (configured) {
     try {
       ping = await woo.ping();
-      const list = await woo.fetchOrders({ max: 1 });
-      sample = list[0] || null;
+      const list = await woo.fetchOrders({ max: 50 });
+      sample = list[list.length - 1] || null;
+      orders = list.map((o) => ({
+        id: o.id,
+        date: String(o.date_created || '').slice(0, 10),
+        status: o.status,
+        total: o.total,
+        currency: o.currency,
+        coupons: (o.coupon_lines || []).map((c) => c.code).join(', '),
+        items: (o.line_items || []).map((l) => `${l.quantity}× ${l.name}`).join(', '),
+        source: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_utm_source')?.value || '',
+        note: o.customer_note || '',
+        extra: (o.meta_data || [])
+          .filter((m) => !/^_wc_order_attribution|^_ziina|^_googlesitekit|^is_vat_exempt/.test(m.key))
+          .map((m) => `${m.key}=${typeof m.value === 'object' ? JSON.stringify(m.value) : m.value}`)
+          .join(' · '),
+      }));
     } catch (err) {
       pingError = err.message;
     }
@@ -649,6 +665,7 @@ async function renderWoo(req, res, extra = {}) {
     ping,
     pingError,
     sample,
+    orders,
     lastImports: await db.many(`SELECT * FROM imports WHERE import_kind = 'woo' ORDER BY id DESC LIMIT 10`),
     result: null,
     ...extra,

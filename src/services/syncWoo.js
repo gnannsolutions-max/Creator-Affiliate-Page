@@ -60,6 +60,14 @@ function mapStatus(order) {
   return normalizeStatus(s);
 }
 
+function hostOf(url) {
+  try {
+    return new URL(String(url)).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 async function resolveBrand() {
   const s = woo.settings();
   if (s.brandId) {
@@ -69,9 +77,13 @@ async function resolveBrand() {
   }
   const all = await brandsLib.all({ onlyActive: true });
   if (all.length === 1) return all[0];
+  // Mehrere Marken: die, deren Shop-Adresse zur WooCommerce-Adresse passt.
+  const host = hostOf(s.url);
+  const match = all.filter((b) => host && hostOf(b.shop_url) === host);
+  if (match.length === 1) return match[0];
   throw new Error(
     all.length
-      ? 'Mehrere aktive Marken – bitte WOO_BRAND_ID auf die Marke dieses Shops setzen.'
+      ? `Mehrere aktive Marken, keine mit der Shop-Adresse ${host || s.url} – bitte WOO_BRAND_ID setzen oder die Adresse bei der Marke eintragen.`
       : 'Keine aktive Marke im Portal. Lege zuerst eine an.'
   );
 }

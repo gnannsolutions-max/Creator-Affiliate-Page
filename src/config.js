@@ -134,9 +134,9 @@ const config = {
     brand: process.env.PROGRAM_BRAND || 'Creator Programm',
     supportEmail: process.env.SUPPORT_EMAIL || 'partner@example.de',
     defaultCommissionRate: Number(process.env.DEFAULT_COMMISSION_RATE || 15),
-    // Fester Abzug je Bestellung vor der Provisionsberechnung (eigene Kosten,
-    // z. B. Zahlungsabwicklung). Basis = Nettobetrag minus dieser Betrag,
-    // nie unter 0. Der Umsatz im Dashboard bleibt der volle Nettobetrag.
+    // Fester Abzug je Bestellung (eigene Kosten, z. B. Zahlungsabwicklung).
+    // Umsatz UND Provision im Creator-Dashboard rechnen mit Nettobetrag minus
+    // diesem Betrag, nie unter 0. In `sales` bleibt der volle Nettobetrag.
     commissionDeduction: Number(process.env.COMMISSION_DEDUCTION ?? 10),
     defaultCustomerDiscount: Number(process.env.DEFAULT_CUSTOMER_DISCOUNT || 10),
     currency: process.env.CURRENCY || 'EUR',

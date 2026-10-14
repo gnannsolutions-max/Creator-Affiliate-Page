@@ -40,8 +40,10 @@ const ACTIVE = `c.status IN ('approved','paused') AND (
 const EARNINGS = `
   SELECT COALESCE(s.creator_id, cc.creator_id) AS creator_id,
          s.brand_id, s.id AS sale_id, s.order_ref, s.order_date, s.status,
-         s.net_amount,
-         CASE WHEN s.status = 'confirmed' THEN s.net_amount ELSE 0 END AS revenue,
+         -- Der Creator sieht den „realen“ Nettobetrag: Netto minus fester Abzug je
+         -- Bestellung (eigene Kosten). Provision und Umsatz beziehen sich beide darauf.
+         GREATEST(s.net_amount - ${DEDUCTION}, 0) AS net_amount,
+         CASE WHEN s.status = 'confirmed' THEN GREATEST(s.net_amount - ${DEDUCTION}, 0) ELSE 0 END AS revenue,
          CASE WHEN s.status = 'confirmed'
               THEN GREATEST(s.net_amount - ${DEDUCTION}, 0) * COALESCE(s.commission_rate, cc.commission_rate, 0) / 100
               ELSE 0 END AS commission

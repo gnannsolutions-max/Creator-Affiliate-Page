@@ -42,7 +42,8 @@ test('10 € werden je Bestellung abgezogen, bevor der Prozentsatz greift – ni
   assert.strictEqual(r.inserted, 3);
   await buildSnapshot({ triggeredBy: 'test' });
   const d = await dashboardFor(c.id);
-  assert.strictEqual(d.totals.revenue_total, 156, 'Umsatz bleibt der volle Nettobetrag');
+  assert.strictEqual(d.totals.revenue_total, 130, 'Umsatz = Netto minus 10 € je Bestellung: 90 + 40 + 0');
+  assert.strictEqual(d.orders.find((o) => o.commission === 27).revenue, 90, 'auch in der Bestellliste steht der bereinigte Betrag');
   assert.strictEqual(d.totals.commission_total, 39, '27 + 12 + 0');
 });
 

@@ -212,7 +212,7 @@ Die komplette Aggregation läuft in vier SQL-Anweisungen, nicht in einer Schleif
 ## Provisionslogik
 
 - Provision entsteht **nur auf Bestellungen mit Status „bestätigt"**.
-- Vor dem Prozentsatz werden je Bestellung **10 € abgezogen** (eigene Kosten). Basis = Nettobetrag − 10 €, nie unter 0. Der Betrag ist über `COMMISSION_DEDUCTION` in Netlify änderbar; der Umsatz im Dashboard bleibt der volle Nettobetrag.
+- Vor dem Prozentsatz werden je Bestellung **10 € abgezogen** (eigene Kosten). Umsatz und Provision im Creator-Dashboard rechnen mit Nettobetrag − 10 €, nie unter 0. Der Betrag ist über `COMMISSION_DEDUCTION` in Netlify änderbar; in der Rohdatentabelle `sales` bleibt der volle Nettobetrag erhalten.
 - Beim Shop-Export (siehe unten) steht der Provisionssatz in jeder Zeile – es gilt die *Creatorbeteiligung in %* aus der Datei, nicht der Satz am Code. Grundlage ist der Nettoumsatz der Zeile.
 - Bei der alten Bestellliste mit Codes gilt der Satz des Codes. Grundlage ist der Nettobetrag (`net_amount`/`netto`). Fehlt die Spalte, wird der Bruttobetrag verwendet.
 - Retouren: Im Shop-Export eine Zeile mit negativem Nettoumsatz hochladen – sie wird mit dem Satz aus der Zeile gegengerechnet. In der Bestellliste dieselbe Bestellnummer mit Status `refunded` erneut hochladen.

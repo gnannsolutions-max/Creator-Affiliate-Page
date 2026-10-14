@@ -11,6 +11,8 @@ process.env.DATABASE_URL =
 process.env.SESSION_SECRET = 'test-secret-0123456789-0123456789';
 process.env.ADMIN_PASSWORD = 'test-passwort';
 process.env.NODE_ENV = 'test';
+// Diese Tests rechnen ohne festen Abzug; der Abzug hat einen eigenen Test.
+process.env.COMMISSION_DEDUCTION = '0';
 
 const db = require('../src/db');
 const { buildSnapshot, dashboardFor, latestRun, hasRunToday } = require('../src/services/snapshot');

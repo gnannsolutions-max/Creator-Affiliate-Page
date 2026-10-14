@@ -3,7 +3,14 @@
 const db = require('../db');
 const { localDate, addDays, formatDateTimeDe } = require('../lib/dates');
 
+const config = require('../config');
+
 const CHART_DAYS = 30;
+// Fester Abzug je Bestellung, bevor der Prozentsatz greift (siehe config).
+// Als Zahl direkt ins SQL, weil EARNINGS ein Textbaustein ohne Parameter ist.
+const DEDUCTION = Number.isFinite(config.program.commissionDeduction)
+  ? Math.max(0, config.program.commissionDeduction)
+  : 0;
 const ORDER_LIST_LIMIT = 100;
 const KEEP_RUNS = 60;
 
@@ -36,7 +43,7 @@ const EARNINGS = `
          s.net_amount,
          CASE WHEN s.status = 'confirmed' THEN s.net_amount ELSE 0 END AS revenue,
          CASE WHEN s.status = 'confirmed'
-              THEN s.net_amount * COALESCE(s.commission_rate, cc.commission_rate, 0) / 100
+              THEN GREATEST(s.net_amount - ${DEDUCTION}, 0) * COALESCE(s.commission_rate, cc.commission_rate, 0) / 100
               ELSE 0 END AS commission
     FROM sales s
     LEFT JOIN creator_codes cc

@@ -52,6 +52,26 @@
     </div>
 
     <div class="card">
+      <h2>Sofort-Aktualisierung bei jeder Bestellung</h2>
+      <% if (webhook.secretSet) { %>
+        <p class="small"><strong>Eingerichtet.</strong> Der Shop meldet jede neue oder geänderte Bestellung an <span class="mono"><%= webhook.url %></span>; die Dashboards werden sofort neu berechnet.
+        <% if (webhook.last) { %>Zuletzt: <%= formatDateTimeDe(webhook.last.created_at) %> (<%= webhook.last.subject %>, <%= webhook.last.detail %>).<% } else { %>Noch keine Meldung eingegangen.<% } %></p>
+      <% } else { %>
+        <p class="small">Damit die Zahlen nicht erst beim nächsten Sicherheitslauf aktuell sind, meldet der Shop jede Bestellung direkt. Dafür im Shop unter <strong>WooCommerce → Einstellungen → Erweitert → Webhooks</strong> zwei Webhooks anlegen:</p>
+        <table class="small" style="margin:8px 0">
+          <tbody>
+            <tr><th style="text-align:left;padding-right:12px">Status</th><td>Aktiv</td></tr>
+            <tr><th style="text-align:left;padding-right:12px">Thema</th><td>einmal „Bestellung erstellt“, einmal „Bestellung aktualisiert“</td></tr>
+            <tr><th style="text-align:left;padding-right:12px">Auslieferungs-URL</th><td class="mono"><%= webhook.url %></td></tr>
+            <tr><th style="text-align:left;padding-right:12px">Secret</th><td>ein langes Zufallswort, bei beiden Webhooks dasselbe</td></tr>
+            <tr><th style="text-align:left;padding-right:12px">API-Version</th><td>WP REST API Integration v3</td></tr>
+          </tbody>
+        </table>
+        <p class="small">Dasselbe Secret in Netlify als <span class="mono">WOO_WEBHOOK_SECRET</span> eintragen. Ohne passendes Secret nimmt das Portal keine Meldungen an.</p>
+      <% } %>
+    </div>
+
+    <div class="card">
       <h2>So werden Creator erkannt</h2>
       <ol class="small">
         <li><strong>Creator-Kennung im Link</strong>: Der Creator postet die Shop-Adresse mit <span class="mono">?utm_source=Creator12</span>. WooCommerce speichert das an der Bestellung; die Kennung ist der Code des Creators im Portal. Provisionssatz vom Code.</li>

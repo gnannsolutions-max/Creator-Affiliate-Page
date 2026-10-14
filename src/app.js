@@ -53,6 +53,10 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 
+  // Webhooks VOR dem Formular-Parser und ohne Session/CSRF: Sie brauchen den
+  // rohen Body für die Signaturprüfung und kommen vom Shop, nicht aus dem Browser.
+  app.use('/', require('./routes/webhooks'));
+
   app.use(express.urlencoded({ extended: false, limit: '200kb' }));
   app.use(cookieParser());
 

@@ -662,6 +662,11 @@ async function renderWoo(req, res, extra = {}) {
     nav: 'admin-import',
     configured,
     settings: { url: s.url, brandId: s.brandId, creatorMeta: process.env.WOO_CREATOR_META || '', rateMeta: process.env.WOO_RATE_META || '' },
+    webhook: {
+      url: `${config.baseUrl}/webhooks/woocommerce`,
+      secretSet: Boolean(process.env.WOO_WEBHOOK_SECRET),
+      last: await db.one(`SELECT * FROM audit_log WHERE action = 'woo.webhook' ORDER BY id DESC LIMIT 1`),
+    },
     ping,
     pingError,
     sample,

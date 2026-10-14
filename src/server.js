@@ -8,7 +8,8 @@ const cron = require('node-cron');
 const config = require('./config');
 const db = require('./db');
 const { createApp } = require('./app');
-const { buildSnapshot } = require('./services/snapshot');
+const { buildSnapshot, needsSafetyRun } = require('./services/snapshot');
+const { localDate } = require('./lib/dates');
 
 async function main() {
   await db.migrate();
@@ -16,27 +17,35 @@ async function main() {
   const app = createApp();
   const server = app.listen(config.port, () => {
     console.log(`${config.program.name} läuft auf ${config.baseUrl}`);
-    console.log(`Tägliche Aktualisierung: ${config.refresh.label} (${config.refresh.timezone})`);
+    console.log(`Sicherheitsläufe: ${config.refresh.label} (${config.refresh.timezone})`);
     if (!config.mail.host) {
       console.log('Kein SMTP konfiguriert – Nachrichten stehen im Adminbereich unter /admin/mails.');
     }
   });
 
-  const expression = `${config.refresh.minute} ${config.refresh.hour} * * *`;
-  cron.schedule(
-    expression,
-    async () => {
-      try {
-        const result = await buildSnapshot({ triggeredBy: 'cron' });
-        console.log(
-          `[${new Date().toISOString()}] Snapshot ${result.runId}: ${result.creators} Creator, ${result.orders} Bestellungen.`
-        );
-      } catch (err) {
-        console.error('Snapshot fehlgeschlagen:', err);
-      }
-    },
-    { timezone: config.refresh.timezone }
-  );
+  // Ein Cron-Eintrag je Slot. Wie auf Netlify läuft der Sicherheitslauf nur,
+  // wenn seit dem letzten Upload kein Stand erzeugt wurde.
+  for (const slot of config.refresh.slots) {
+    cron.schedule(
+      `${slot.minute} ${slot.hour} * * *`,
+      async () => {
+        try {
+          const check = await needsSafetyRun(localDate());
+          if (!check.needed) {
+            console.log(`[${new Date().toISOString()}] Sicherheitslauf ${slot.label} übersprungen: ${check.reason}`);
+            return;
+          }
+          const result = await buildSnapshot({ triggeredBy: 'cron', slot: slot.label });
+          console.log(
+            `[${new Date().toISOString()}] Snapshot ${result.runId} (${slot.label}): ${result.creators} Creator, ${result.orders} Bestellungen.`
+          );
+        } catch (err) {
+          console.error('Snapshot fehlgeschlagen:', err);
+        }
+      },
+      { timezone: config.refresh.timezone }
+    );
+  }
 
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => {

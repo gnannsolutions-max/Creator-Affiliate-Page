@@ -1,9 +1,26 @@
 'use strict';
 
+const crypto = require('crypto');
 const db = require('../db');
-const { parseSalesCsv } = require('../lib/csv');
+const { parseSalesCsv, parseCreatorSharesCsv, parseCsv, detectFormat, normalizeName } = require('../lib/csv');
+const { localDate } = require('../lib/dates');
 
 const BATCH_SIZE = 500;
+
+/** Fingerabdruck einer Datei – unabhängig von Zeilenenden und BOM. */
+function contentHash(text) {
+  const norm = String(text).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
+  return crypto.createHash('sha256').update(norm).digest('hex');
+}
+
+/** Wurde genau dieser Inhalt für diese Marke schon einmal importiert? */
+async function findDuplicateImport(hash, brandId) {
+  return db.one(
+    `SELECT id, filename, created_at FROM imports
+      WHERE content_hash = $1 AND brand_id = $2 ORDER BY id DESC LIMIT 1`,
+    [hash, brandId]
+  );
+}
 
 /**
  * Importiert eine Umsatz-CSV in die Rohdaten-Tabelle `sales`.
@@ -124,4 +141,167 @@ async function importSalesCsv(text, { brandId, filename = 'upload.csv', actor = 
   };
 }
 
-module.exports = { importSalesCsv };
+/**
+ * Importiert den Shop-Export mit Umsatz je Creator (Nettoumsatz, Beteiligung
+ * in %, Creatorname). Jede Zeile wird zu einer Bestellung:
+ *   - Bestellnummer: U<Import-Nr>-<Zeile>, weil die Datei keine hat
+ *   - Datum: der Tag des Uploads (Programm-Zeitzone)
+ *   - Creator: über den Namen aufgelöst – erst Klarname, dann Instagram-Handle
+ *   - Provisionssatz: aus der Datei, steht an der Zeile
+ *
+ * Ohne Bestellnummer kann nichts „aktualisiert“ werden – alles ist neu. Genau
+ * deshalb wird derselbe Dateiinhalt für dieselbe Marke nicht zweimal
+ * angenommen, es sei denn, `force` ist gesetzt.
+ */
+async function importCreatorSharesCsv(
+  text,
+  { brandId, filename = 'upload.csv', actor = 'admin', force = false } = {}
+) {
+  if (!brandId) throw new Error('Ohne Marke lässt sich eine Umsatzliste nicht zuordnen.');
+  const parsed = parseCreatorSharesCsv(text);
+  if (!parsed.rows.length) {
+    return {
+      ok: false,
+      kind: 'shares',
+      problems: parsed.problems.length ? parsed.problems : ['Die Datei enthält keine verwertbaren Zeilen.'],
+      mapping: parsed.mapping,
+    };
+  }
+
+  const hash = contentHash(text);
+  const dup = await findDuplicateImport(hash, brandId);
+  if (dup && !force) {
+    return {
+      ok: false,
+      kind: 'shares',
+      duplicate: dup,
+      problems: [
+        `Genau diese Datei wurde bereits importiert (Import #${dup.id}, „${dup.filename}“). ` +
+          'Ein zweiter Import würde alle Umsätze verdoppeln. Wenn das wirklich gewollt ist, ' +
+          'setze beim Hochladen den Haken „Trotzdem importieren“.',
+      ],
+      mapping: parsed.mapping,
+    };
+  }
+
+  // Alle Namen auf einmal auflösen. Treffer über den Klarnamen haben Vorrang,
+  // dann über das Instagram-Handle. Gibt es zwei Creator mit demselben Namen,
+  // bleibt die Zeile unzugeordnet – lieber nachfragen als dem Falschen Geld
+  // gutschreiben.
+  const creators = await db.many(
+    `SELECT id, full_name, instagram, status FROM creators
+      WHERE status IN ('approved','paused','pending')`
+  );
+  const byName = new Map();
+  const byHandle = new Map();
+  for (const c of creators) {
+    const n = normalizeName(c.full_name);
+    if (n) byName.set(n, byName.has(n) ? 'ambiguous' : c);
+    const h = normalizeName(c.instagram);
+    if (h) byHandle.set(h, byHandle.has(h) ? 'ambiguous' : c);
+  }
+
+  const unknown = new Map();
+  const ambiguous = new Map();
+  const matched = new Map();
+  for (const row of parsed.rows) {
+    const hit = byName.get(row.name_norm) || byHandle.get(row.name_norm) || null;
+    if (hit === 'ambiguous') {
+      row.creator_id = null;
+      ambiguous.set(row.creator_name, (ambiguous.get(row.creator_name) || 0) + 1);
+    } else if (hit) {
+      row.creator_id = hit.id;
+      matched.set(hit.id, { name: hit.full_name, rows: (matched.get(hit.id)?.rows || 0) + 1 });
+    } else {
+      row.creator_id = null;
+      unknown.set(row.creator_name, (unknown.get(row.creator_name) || 0) + 1);
+    }
+  }
+
+  const today = localDate();
+  const result = await db.tx(async (t) => {
+    const imp = await t.one(
+      `INSERT INTO imports (filename, rows_total, uploaded_by, brand_id, content_hash, import_kind)
+       VALUES ($1, $2, $3, $4, $5, 'shares') RETURNING id`,
+      [filename, parsed.total, actor, brandId, hash]
+    );
+    const importId = imp.id;
+    let inserted = 0;
+
+    for (let i = 0; i < parsed.rows.length; i += BATCH_SIZE) {
+      const chunk = parsed.rows.slice(i, i + BATCH_SIZE);
+      const values = [];
+      const placeholders = chunk.map((row, idx) => {
+        const b = idx * 6;
+        values.push(
+          `U${importId}-${i + idx + 1}`,
+          row.net_amount,
+          row.net_amount,
+          row.creator_id,
+          row.commission_rate,
+          row.creator_name
+        );
+        const n = chunk.length * 6;
+        return `($${b + 1}, '', $${n + 1}, $${b + 2}, $${b + 3}, 'confirmed', $${n + 2}, $${n + 3}, $${b + 4}, $${b + 5}, $${b + 6})`;
+      });
+      values.push(today, importId, brandId);
+      const res = await t.many(
+        `INSERT INTO sales (order_ref, code_norm, order_date, gross_amount, net_amount, status,
+                            import_id, brand_id, creator_id, commission_rate, creator_name)
+         VALUES ${placeholders.join(', ')}
+         RETURNING id`,
+        values
+      );
+      inserted += res.length;
+    }
+
+    const unknownList = [...unknown.entries()].map(([name, count]) => ({ name, count }));
+    const ambiguousList = [...ambiguous.entries()].map(([name, count]) => ({ name, count, ambiguous: true }));
+    await t.run(
+      `UPDATE imports SET rows_inserted = $1, rows_updated = 0, rows_skipped = $2, unknown_names = $3
+        WHERE id = $4`,
+      [inserted, parsed.total - parsed.rows.length, JSON.stringify([...unknownList, ...ambiguousList]), importId]
+    );
+    return { importId, inserted };
+  });
+
+  await db.log(
+    actor,
+    'import.shares',
+    filename,
+    `${result.inserted} Umsatzzeilen, ${matched.size} Creator zugeordnet, ${unknown.size} unbekannte Namen (Marke ${brandId})`
+  );
+
+  return {
+    ok: true,
+    kind: 'shares',
+    importId: result.importId,
+    total: parsed.total,
+    inserted: result.inserted,
+    updated: 0,
+    skipped: parsed.total - parsed.rows.length,
+    problems: parsed.problems,
+    mapping: parsed.mapping,
+    headerless: parsed.headerless,
+    day: today,
+    matched: [...matched.values()],
+    unknownNames: [...unknown.entries()].map(([name, count]) => ({ name, count })),
+    ambiguousNames: [...ambiguous.entries()].map(([name, count]) => ({ name, count })),
+    unknownCodes: [],
+  };
+}
+
+/**
+ * Erkennt das Format der Datei und ruft den passenden Import auf.
+ * Der Shop-Export (Umsatz je Creator) ist der Normalfall; die alte
+ * Bestellliste mit Codes bleibt weiter möglich.
+ */
+async function importAnyCsv(text, opts = {}) {
+  const { header } = parseCsv(text);
+  const format = detectFormat(header);
+  if (format === 'orders') return { ...(await importSalesCsv(text, opts)), kind: 'orders' };
+  // Alles andere – auch Dateien ohne Überschriften – versucht der Creator-Import.
+  return importCreatorSharesCsv(text, opts);
+}
+
+module.exports = { importSalesCsv, importCreatorSharesCsv, importAnyCsv, contentHash };

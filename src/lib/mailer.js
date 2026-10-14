@@ -121,7 +121,8 @@ Hand eingibt, zählt das genauso.
 Dein Dashboard (Login ohne Passwort, Link 30 Minuten gültig):
 ${loginUrl}
 
-Deine Sales werden dort jeden Tag um ${config.refresh.label} aktualisiert.
+Deine Sales werden dort zweimal täglich aktualisiert – jeweils sobald die
+neuen Bestellungen aus dem Shop eingespielt sind (vormittags und nachmittags).
 
 Bitte lies vor dem ersten Post die Werberegeln in deinem Dashboard.
 Die wichtigsten drei Punkte:

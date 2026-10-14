@@ -5,7 +5,9 @@
 --    sales      = Rohdaten aus den CSV-Importen (jederzeit veränderbar)
 --    snapshot_* = eingefrorener Stand, den Creator im Dashboard sehen
 --  Das Dashboard liest AUSSCHLIESSLICH aus den Snapshot-Tabellen. Dadurch
---  ändern sich die Zahlen für Creator nur beim täglichen Lauf um 11:00 Uhr.
+--  ändern sich die Zahlen für Creator nur, wenn ein Snapshot erzeugt wird:
+--  direkt nach jedem Upload der Bestellungen und bei den Sicherheitsläufen
+--  (standardmäßig 10:30 und 17:30 Uhr).
 --
 --  Datumsfelder für Bestellungen liegen bewusst als TEXT im Format YYYY-MM-DD
 --  vor: So sind Vergleiche und Sortierung identisch zur bisherigen Logik und
@@ -305,6 +307,36 @@ CREATE TABLE IF NOT EXISTS snapshot_brand_totals (
   last_sale_date   TEXT,
   PRIMARY KEY (run_id, creator_id, brand_id)
 );
+
+-- --- Umsätze je Creator direkt aus dem Shop-Export ---------------------------
+--  Der Shop liefert zweimal täglich eine Liste mit drei Spalten: Nettoumsatz,
+--  Creatorbeteiligung in Prozent und Creatorname. Es gibt darin weder
+--  Bestellnummer noch Datum noch Rabattcode. Deshalb trägt jede Umsatzzeile
+--  jetzt selbst, wem sie gehört und mit welchem Satz sie vergütet wird:
+--    creator_id      – beim Import über den Namen aufgelöst (NULL = unbekannt)
+--    commission_rate – der Satz aus der Datei; NULL = Satz des Codes gilt
+--    creator_name    – der Name, wie er in der Datei stand (für die Prüfung)
+--  Die Bestellnummer wird beim Import vergeben (U<Import>-<Zeile>), das Datum
+--  ist der Tag des Uploads. Der alte Weg über Rabattcodes bleibt daneben
+--  bestehen: code_norm ist dafür nur noch optional.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS creator_id      BIGINT REFERENCES creators(id) ON DELETE SET NULL;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS commission_rate DOUBLE PRECISION;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS creator_name    TEXT;
+ALTER TABLE sales ALTER COLUMN code_norm DROP NOT NULL;
+ALTER TABLE sales ALTER COLUMN code_norm SET DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_sales_creator_date ON sales(creator_id, order_date);
+
+-- Jeder Upload wird mit einem Fingerabdruck des Inhalts gespeichert. Da die
+-- Zeilen keine Bestellnummer haben, würde dieselbe Datei beim zweiten Upload
+-- alle Umsätze verdoppeln – der Fingerabdruck fängt das ab.
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS content_hash  TEXT;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS unknown_names TEXT;
+ALTER TABLE imports ADD COLUMN IF NOT EXISTS import_kind   TEXT;
+CREATE INDEX IF NOT EXISTS idx_imports_hash ON imports(content_hash);
+
+-- Welcher Sicherheitslauf einen Snapshot erzeugt hat ('10:30', '17:30').
+-- Importläufe und manuelle Läufe haben keinen Slot.
+ALTER TABLE snapshot_runs ADD COLUMN IF NOT EXISTS slot TEXT;
 
 -- --- Akquise -----------------------------------------------------------------
 --  Creator, die noch keine Bewerbung abgeschickt haben: angeschrieben auf

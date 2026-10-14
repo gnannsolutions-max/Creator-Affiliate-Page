@@ -69,6 +69,19 @@ function formatDateTimeDe(value) {
   );
 }
 
+/**
+ * „heute um 17:30 Uhr“ / „morgen um 10:30 Uhr“ – der nächste Sicherheitslauf,
+ * gerechnet in der Programm-Zeitzone. Für Texte im Dashboard.
+ */
+function nextRefreshLabel(date = new Date()) {
+  const { hour, minute } = localHourMinute(date);
+  const now = hour * 60 + minute;
+  const slots = config.refresh.slots;
+  const next = slots.find((s) => s.hour * 60 + s.minute > now);
+  if (next) return `heute um ${next.label} Uhr`;
+  return `morgen um ${slots[0].label} Uhr`;
+}
+
 function monthKey(isoDate) {
   return String(isoDate).slice(0, 7);
 }
@@ -81,5 +94,6 @@ module.exports = {
   dateRange,
   formatDateDe,
   formatDateTimeDe,
+  nextRefreshLabel,
   monthKey,
 };

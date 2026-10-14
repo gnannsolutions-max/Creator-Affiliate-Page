@@ -5,8 +5,9 @@
     <h1>Übersicht</h1>
     <p>
       <% if (run) { %>
-        Letzter Dashboard-Stand: <strong><%= run.as_of_label %></strong> (<%= run.triggered_by === 'cron' ? 'automatisch' : 'manuell' %>) ·
-        nächster Lauf um <%= refreshTime %>
+        Letzter Dashboard-Stand: <strong><%= run.as_of_label %></strong>
+        (<%= run.triggered_by === 'import' ? 'nach Upload' : run.triggered_by === 'cron' ? 'Sicherheitslauf' + (run.slot ? ' ' + run.slot : '') : 'manuell' %>) ·
+        nächster Sicherheitslauf <%= nextRefresh %>
       <% } else { %>
         Noch kein Snapshot erzeugt. Creator sehen bis zum ersten Lauf keine Zahlen.
       <% } %>
@@ -70,7 +71,7 @@
         <button class="btn" type="submit">Dashboard jetzt aktualisieren</button>
       </form>
       <% if (admin.role === 'owner') { %><a class="btn btn--ghost" href="/admin/import">Umsatz-CSV hochladen</a><% } %>
-      <span class="small muted">Der automatische Lauf startet täglich um <%= refreshTime %> (<%= timezone %>).</span>
+      <span class="small muted">Die Dashboards werden nach jedem Upload neu berechnet; Sicherheitsläufe um <%= refreshTime %> (<%= timezone %>) greifen nur, wenn ein Upload ohne Aktualisierung geblieben ist.</span>
     </div>
   </div>
 

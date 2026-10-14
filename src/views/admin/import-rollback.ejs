@@ -43,10 +43,10 @@
 
   <% if (codes.length) { %>
   <div class="card card--flush">
-    <div class="card-head"><h2>Betroffene Codes</h2></div>
+    <div class="card-head"><h2>Betroffene Creator bzw. Codes</h2></div>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Code</th><th class="num">Bestellungen</th></tr></thead>
+        <thead><tr><th>Creator / Code</th><th class="num">Bestellungen</th></tr></thead>
         <tbody>
           <% codes.forEach(function (c) { %>
           <tr><td class="mono"><%= c.code_norm %></td><td class="num"><%= num(c.rows) %></td></tr>

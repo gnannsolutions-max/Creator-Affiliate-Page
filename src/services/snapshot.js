@@ -8,31 +8,44 @@ const ORDER_LIST_LIMIT = 100;
 const KEEP_RUNS = 60;
 
 // Nur diese Creator bekommen einen Snapshot: freigegeben und mit mindestens
-// einem aktiven Code. Ein Creator ohne zugewiesene Marke hat nichts zu zeigen.
-const ACTIVE = `c.status IN ('approved','paused') AND EXISTS (
-  SELECT 1 FROM creator_codes cc WHERE cc.creator_id = c.id AND cc.status = 'active'
+// einem aktiven Code ODER mit mindestens einer Umsatzzeile, die ihnen beim
+// Import über den Namen zugeordnet wurde. Wer weder das eine noch das andere
+// hat, hat nichts zu zeigen.
+const ACTIVE = `c.status IN ('approved','paused') AND (
+  EXISTS (SELECT 1 FROM creator_codes cc WHERE cc.creator_id = c.id AND cc.status = 'active')
+  OR EXISTS (SELECT 1 FROM sales sx WHERE sx.creator_id = c.id)
 )`;
 
 /**
- * Jede Bestellung, die einem Creator zusteht – aufgelöst über Marke UND Code.
+ * Jede Umsatzzeile, die einem Creator zusteht.
  *
- * Die Zuordnung läuft bewusst über beides: Bestellnummern und Rabattcodes sind
- * nur innerhalb eines Shops eindeutig. Würden wir nur über den Code verbinden,
- * bekäme bei zwei Marken mit gleichlautendem Code der falsche Creator das Geld.
+ * Zwei Wege führen zum Creator, und die Zeile selbst hat Vorrang:
+ *   1. Die Zeile trägt creator_id – gesetzt beim Import des Shop-Exports, der
+ *      den Creator beim Namen nennt. Der Provisionssatz steht dann ebenfalls in
+ *      der Zeile (commission_rate), weil der Shop ihn mitliefert.
+ *   2. Die Zeile trägt einen Rabattcode – der alte Weg. Code und Marke
+ *      zusammen zeigen auf den Creator; der Satz kommt vom Code. Marke UND
+ *      Code, weil Codes nur innerhalb eines Shops eindeutig sind.
  *
- * Die Provision hängt am Code, nicht am Creator: Für dieselbe Person können je
- * Marke unterschiedliche Sätze gelten.
+ * Eine Zeile ohne creator_id und ohne passenden Code gehört niemandem und
+ * fällt hier heraus – sie bleibt in `sales` und steht im Importergebnis.
  */
 const EARNINGS = `
-  SELECT cc.creator_id, cc.brand_id, s.id AS sale_id, s.order_ref, s.order_date, s.status,
+  SELECT COALESCE(s.creator_id, cc.creator_id) AS creator_id,
+         s.brand_id, s.id AS sale_id, s.order_ref, s.order_date, s.status,
          s.net_amount,
          CASE WHEN s.status = 'confirmed' THEN s.net_amount ELSE 0 END AS revenue,
          CASE WHEN s.status = 'confirmed'
-              THEN s.net_amount * cc.commission_rate / 100 ELSE 0 END AS commission
-    FROM creator_codes cc
-    JOIN creators cr ON cr.id = cc.creator_id AND cr.status IN ('approved','paused')
-    JOIN sales s ON s.brand_id = cc.brand_id AND s.code_norm = cc.code_norm
-   WHERE cc.status = 'active'`;
+              THEN s.net_amount * COALESCE(s.commission_rate, cc.commission_rate, 0) / 100
+              ELSE 0 END AS commission
+    FROM sales s
+    LEFT JOIN creator_codes cc
+           ON s.creator_id IS NULL
+          AND cc.brand_id = s.brand_id
+          AND cc.code_norm = s.code_norm
+          AND cc.status = 'active'
+    JOIN creators cr ON cr.id = COALESCE(s.creator_id, cc.creator_id)
+                    AND cr.status IN ('approved','paused')`;
 
 /**
  * Baut den Stand, den Creator im Dashboard sehen.
@@ -46,7 +59,7 @@ const EARNINGS = `
  * Retouren fallen damit automatisch wieder heraus, sobald sie im nächsten
  * CSV-Export als solche auftauchen.
  */
-async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
+async function buildSnapshot({ triggeredBy = 'cron', slot = null } = {}) {
   const now = new Date();
   const today = localDate(now);
   const chartFrom = addDays(today, -(CHART_DAYS - 1));
@@ -56,9 +69,9 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
 
   return db.tx(async (t) => {
     const run = await t.one(
-      `INSERT INTO snapshot_runs (as_of, as_of_label, as_of_day, triggered_by)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [now.toISOString(), formatDateTimeDe(now), today, triggeredBy]
+      `INSERT INTO snapshot_runs (as_of, as_of_label, as_of_day, triggered_by, slot)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [now.toISOString(), formatDateTimeDe(now), today, triggeredBy, slot]
     );
     const runId = run.id;
 
@@ -127,7 +140,13 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
          ROUND(COALESCE(w.revenue, 0)::numeric, 2)::float8,
          ROUND(COALESCE(w.commission, 0)::numeric, 2)::float8,
          a.last_date
-       FROM creator_codes cc
+       FROM (
+         -- Jede Kombination aus Creator und Marke, für die es entweder einen
+         -- aktiven Code oder zugeordnete Umsatzzeilen gibt.
+         SELECT cc.creator_id, cc.brand_id FROM creator_codes cc WHERE cc.status = 'active'
+         UNION
+         SELECT e.creator_id, e.brand_id FROM earnings e
+       ) cc
        JOIN creators c ON c.id = cc.creator_id
        LEFT JOIN LATERAL (
          SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission,
@@ -143,7 +162,7 @@ async function buildSnapshot({ triggeredBy = 'cron' } = {}) {
             AND e.status = 'confirmed'
             AND e.order_date >= $2 AND e.order_date <= $3
        ) w ON TRUE
-       WHERE cc.status = 'active' AND c.status IN ('approved','paused')`,
+       WHERE c.status IN ('approved','paused')`,
       [runId, win30From, today]
     );
 
@@ -260,9 +279,20 @@ async function dashboardFor(creatorId) {
 }
 
 /**
- * Wurde heute nach dem geplanten Zeitpunkt bereits ein Lauf erzeugt?
- * Der stündliche Scheduler auf Netlify nutzt das, um nicht mehrfach zu laufen.
+ * Hat der Sicherheitslauf für diesen Slot (z. B. '10:30') heute schon
+ * stattgefunden? Netlify ruft je Slot zwei Termine auf (Sommer- und
+ * Winterzeit); der zweite muss folgenlos bleiben.
  */
+async function hasRunForSlot(day, slot) {
+  const row = await db.one(
+    `SELECT id FROM snapshot_runs
+      WHERE as_of_day = $1 AND slot = $2 AND triggered_by IN ('cron','schedule') LIMIT 1`,
+    [day, slot]
+  );
+  return Boolean(row);
+}
+
+/** Abwärtskompatibel: irgendein Sicherheitslauf heute? */
 async function hasRunToday(day) {
   const row = await db.one(
     `SELECT id FROM snapshot_runs WHERE as_of_day = $1 AND triggered_by IN ('cron','schedule') LIMIT 1`,
@@ -271,4 +301,34 @@ async function hasRunToday(day) {
   return Boolean(row);
 }
 
-module.exports = { buildSnapshot, latestRun, dashboardFor, hasRunToday, CHART_DAYS };
+/**
+ * Lohnt sich ein Sicherheitslauf überhaupt?
+ *
+ * Seit jeder Upload sofort einen Snapshot erzeugt, ist der feste Lauf nur noch
+ * ein Netz: Er greift, wenn ein Upload ohne Snapshot geblieben ist (etwa weil
+ * die Function nach dem Import abgebrochen ist) oder wenn heute noch gar kein
+ * Stand erzeugt wurde – dann sind zumindest die 30-Tage-Fenster frisch.
+ *
+ * Liegt der jüngste Snapshot von heute NACH dem jüngsten Import, gibt es nichts
+ * Neues zu rechnen, und der Lauf wird übersprungen. Das spart Function-Zeit
+ * und hält die Liste der Läufe lesbar.
+ */
+async function needsSafetyRun(day) {
+  const latest = await latestRun();
+  if (!latest || latest.as_of_day !== day) return { needed: true, reason: 'Heute noch kein Stand erzeugt.' };
+  const imp = await db.one('SELECT created_at FROM imports ORDER BY id DESC LIMIT 1');
+  if (imp && new Date(imp.created_at) > new Date(latest.as_of)) {
+    return { needed: true, reason: 'Nach dem letzten Upload wurde noch kein Stand erzeugt.' };
+  }
+  return { needed: false, reason: 'Der aktuelle Stand ist jünger als der letzte Upload.' };
+}
+
+module.exports = {
+  buildSnapshot,
+  latestRun,
+  dashboardFor,
+  hasRunToday,
+  hasRunForSlot,
+  needsSafetyRun,
+  CHART_DAYS,
+};

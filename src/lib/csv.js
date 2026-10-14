@@ -74,7 +74,8 @@ function parseCsv(text) {
   record.push(field);
   if (record.length > 1 || record[0].trim() !== '') records.push(record);
 
-  const header = (records.shift() || []).map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+  const rawHeader = (records.shift() || []).map((h) => String(h).trim());
+  const header = rawHeader.map((h) => h.toLowerCase().replace(/^"|"$/g, ''));
   const rows = records
     .filter((r) => r.some((v) => String(v).trim() !== ''))
     .map((r) => {
@@ -85,7 +86,7 @@ function parseCsv(text) {
       return obj;
     });
 
-  return { header, rows, delimiter };
+  return { header, rawHeader, rows, delimiter };
 }
 
 const COLUMN_ALIASES = {
@@ -199,4 +200,215 @@ function parseSalesCsv(text) {
   return { rows: out, problems, mapping, total: rows.length };
 }
 
-module.exports = { parseCsv, parseSalesCsv, parseNumber, parseDate, normalizeStatus };
+// =============================================================================
+//  Zweites Format: der Shop-Export mit Umsatz je Creator
+//
+//  Drei Spalten, keine Bestellnummer, kein Datum, kein Code:
+//    Nettoumsatz ; Creatorbeteiligung in % ; Creatorname
+//  Jede Zeile ist eine Bestellung. Wer sie verkauft hat, steht als Name drin,
+//  und wie viel davon dem Creator zusteht, liefert der Shop gleich mit.
+// =============================================================================
+
+const SHARE_ALIASES = {
+  net_amount: [
+    'nettoumsatz', 'netto-umsatz', 'netto umsatz', 'umsatz netto', 'umsatz (netto)', 'netto',
+    'net_amount', 'net amount', 'net', 'net revenue', 'revenue', 'umsatz', 'betrag', 'summe',
+    'bestellwert', 'subtotal', 'zwischensumme', 'provisionsbasis',
+  ],
+  commission_rate: [
+    'creatorbeteiligung', 'creatorbeteiligung in %', 'creatorbeteiligung (%)', 'creator-beteiligung',
+    'creator beteiligung', 'beteiligung', 'beteiligung in %', 'beteiligung (%)', 'beteiligung %',
+    'provision', 'provision in %', 'provision (%)', 'provision %', 'provisionssatz', 'satz',
+    'anteil', 'anteil in %', 'commission', 'commission_rate', 'commission rate', 'rate', 'share', '%',
+  ],
+  creator_name: [
+    'creatorname', 'creator-name', 'creator name', 'creator', 'name', 'creatorin', 'influencer',
+    'partner', 'partnername', 'affiliate', 'vermittler', 'verkäufer', 'verkaufer', 'verkauft über',
+    'verkauft ueber', 'verkauft durch',
+  ],
+};
+
+function cleanHeader(h) {
+  return String(h || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^"|"$/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/**
+ * Ordnet Spaltenüberschriften den drei Feldern zu. Erst exakte Aliase, dann
+ * Schlüsselwörter im Text („Netto“, „Beteiligung“, „Creator“) – Shops
+ * schreiben gern Varianten wie „Netto-Umsatz (EUR)“.
+ */
+function mapShareColumns(header) {
+  const clean = header.map(cleanHeader);
+  const mapping = {};
+  const taken = new Set();
+
+  for (const [field, aliases] of Object.entries(SHARE_ALIASES)) {
+    const idx = clean.findIndex((h, i) => !taken.has(i) && aliases.includes(h));
+    if (idx !== -1) {
+      mapping[field] = header[idx];
+      taken.add(idx);
+    }
+  }
+
+  const keyword = (field, test) => {
+    if (mapping[field]) return;
+    const idx = clean.findIndex((h, i) => !taken.has(i) && test(h));
+    if (idx !== -1) {
+      mapping[field] = header[idx];
+      taken.add(idx);
+    }
+  };
+  keyword('commission_rate', (h) => /beteilig|provision|anteil|commission|%|prozent|satz/.test(h));
+  keyword('net_amount', (h) => /netto|umsatz|betrag|revenue|amount|summe|wert/.test(h));
+  keyword('creator_name', (h) => /creator|name|influencer|partner|affiliate/.test(h));
+
+  return mapping;
+}
+
+/**
+ * Erkennt, welches der beiden Formate eine Datei hat.
+ *   'orders' – Bestellliste mit Bestellnummer und Rabattcode (bisheriger Weg)
+ *   'shares' – Umsatz je Creator mit Name und Beteiligung
+ *   null     – keins von beiden
+ */
+function detectFormat(header) {
+  const orders = mapColumns(header);
+  if (orders.order_ref && orders.code && orders.order_date) return 'orders';
+  const shares = mapShareColumns(header);
+  if (shares.net_amount && shares.commission_rate && shares.creator_name) return 'shares';
+  return null;
+}
+
+/** Prozentsatz lesen: „30 %“, „30“, „0,3“ → 30 */
+function parseRate(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const n = parseNumber(raw);
+  if (n === null) return null;
+  // Ohne Prozentzeichen und kleiner als 1 ist es ein Bruch (0,3 = 30 %).
+  if (!raw.includes('%') && n > 0 && n < 1) return Math.round(n * 10000) / 100;
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Creatornamen so vereinheitlichen, dass „Max Mustermann“, „max-mustermann“
+ * und „MAXMUSTERMANN“ dieselbe Person treffen. Umlaute werden aufgelöst,
+ * damit „Jörg“ und „Joerg“ beide zum selben Eintrag führen.
+ */
+function normalizeName(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/ß/g, 'ss')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Hat die Datei keine Überschriften, sondern fängt direkt mit Daten an? Dann
+ * raten wir die Spalten am Inhalt: Die Textspalte ist der Name, von den
+ * beiden Zahlenspalten ist die mit Prozentzeichen oder ganzzahligen Werten
+ * bis 100 die Beteiligung, die andere der Umsatz.
+ */
+function guessHeaderlessShares(records) {
+  if (!records.length || records[0].length !== 3) return null;
+  const sample = records.slice(0, 25);
+  const isNumeric = (v) => parseNumber(v) !== null && /^[\s\d.,%€$-]+$/.test(String(v));
+  const cols = [0, 1, 2].map((i) => ({
+    i,
+    numeric: sample.every((r) => isNumeric(r[i])),
+    pct: sample.some((r) => String(r[i]).includes('%')),
+    maxVal: Math.max(...sample.map((r) => Math.abs(parseNumber(r[i]) ?? 0))),
+    integerish: sample.every((r) => Number.isInteger(parseNumber(r[i]) ?? 0.5)),
+  }));
+  const text = cols.filter((c) => !c.numeric);
+  const nums = cols.filter((c) => c.numeric);
+  if (text.length !== 1 || nums.length !== 2) return null;
+
+  let rate = nums.find((c) => c.pct);
+  if (!rate) rate = nums.find((c) => c.integerish && c.maxVal <= 100 && !nums.every((n) => n.integerish && n.maxVal <= 100));
+  if (!rate) rate = nums.reduce((a, b) => (a.maxVal <= b.maxVal ? a : b));
+  const net = nums.find((c) => c !== rate);
+  return { net_amount: net.i, commission_rate: rate.i, creator_name: text[0].i };
+}
+
+/**
+ * Wandelt den Shop-Export in Umsatzzeilen um.
+ * @returns {{rows: Array, problems: Array<string>, mapping: object, total: number, headerless: boolean}}
+ */
+function parseCreatorSharesCsv(text) {
+  const { header, rawHeader, rows } = parseCsv(text);
+  const problems = [];
+  let mapping = mapShareColumns(header);
+  let headerless = false;
+  let records = rows.map((r) => header.map((h) => r[h]));
+
+  if (!(mapping.net_amount && mapping.commission_rate && mapping.creator_name)) {
+    // Vielleicht gibt es gar keine Überschriftszeile.
+    const all = [rawHeader, ...records].filter((r) => r.some((v) => String(v ?? '').trim() !== ''));
+    const guess = guessHeaderlessShares(all);
+    if (!guess) {
+      problems.push(
+        `Spalten nicht erkannt – erwartet werden Nettoumsatz, Creatorbeteiligung in % und Creatorname (erkannte Spalten: ${
+          header.join(', ') || 'keine'
+        }).`
+      );
+      return { rows: [], problems, mapping, total: rows.length, headerless: false };
+    }
+    headerless = true;
+    records = all;
+    mapping = {
+      net_amount: `Spalte ${guess.net_amount + 1}`,
+      commission_rate: `Spalte ${guess.commission_rate + 1}`,
+      creator_name: `Spalte ${guess.creator_name + 1}`,
+    };
+    problems.push('Keine Überschriften erkannt – die Spalten wurden anhand des Inhalts zugeordnet. Bitte das Ergebnis prüfen.');
+    const idx = guess;
+    return finish(records.map((r) => [r[idx.net_amount], r[idx.commission_rate], r[idx.creator_name]]));
+  }
+
+  const hi = {
+    net: header.indexOf(mapping.net_amount),
+    rate: header.indexOf(mapping.commission_rate),
+    name: header.indexOf(mapping.creator_name),
+  };
+  return finish(records.map((r) => [r[hi.net], r[hi.rate], r[hi.name]]));
+
+  function finish(triples) {
+    const out = [];
+    triples.forEach(([netRaw, rateRaw, nameRaw], index) => {
+      const line = index + (headerless ? 1 : 2);
+      const name = String(nameRaw ?? '').trim();
+      const net = parseNumber(netRaw);
+      const rate = parseRate(rateRaw);
+      if (!name) return problems.push(`Zeile ${line}: kein Creatorname – übersprungen.`);
+      if (net === null) return problems.push(`Zeile ${line}: Umsatz nicht lesbar – übersprungen.`);
+      if (rate === null) return problems.push(`Zeile ${line}: Beteiligung nicht lesbar – übersprungen.`);
+      if (rate < 0 || rate > 100) return problems.push(`Zeile ${line}: Beteiligung ${rate} % ist unplausibel – übersprungen.`);
+      out.push({
+        creator_name: name,
+        name_norm: normalizeName(name),
+        net_amount: Math.round(net * 100) / 100,
+        commission_rate: rate,
+      });
+    });
+    return { rows: out, problems, mapping, total: triples.length, headerless };
+  }
+}
+
+module.exports = {
+  parseCsv,
+  parseSalesCsv,
+  parseCreatorSharesCsv,
+  detectFormat,
+  mapShareColumns,
+  parseNumber,
+  parseDate,
+  parseRate,
+  normalizeStatus,
+  normalizeName,
+};

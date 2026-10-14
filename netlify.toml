@@ -31,19 +31,29 @@
   # Function berechnet daraus die Versionskennung für <link>/<script>.
   included_files = ["src/views/**", "src/schema.sql", "public/*.css", "public/*.js"]
 
-# Tägliche Aktualisierung um 11:00 Europe/Berlin.
+# Sicherheitsläufe um 10:30 und 17:30 Europe/Berlin.
 #
-# Netlify plant ausschließlich in UTC. Statt stündlich zu laufen (24 Aufrufe
-# am Tag, 23 davon umsonst) gibt es zwei Termine: 09:00 UTC trifft 11:00 Uhr
-# in der Sommerzeit, 10:00 UTC trifft 11:00 Uhr in der Winterzeit. Die
-# Function prüft selbst, ob gerade die konfigurierte Stunde ist, und beendet
-# sich sonst, bevor sie die Datenbank anfasst. Ein Lauf pro Tag ist zudem
-# durch hasRunToday() abgesichert.
+# Der eigentliche Dashboard-Stand entsteht direkt nach jedem Upload der
+# Bestellungen im Adminbereich. Die Läufe hier greifen nur, wenn ein Upload
+# ohne Aktualisierung geblieben ist oder heute noch kein Stand existiert.
+#
+# Netlify plant ausschließlich in UTC. Je Slot gibt es deshalb zwei Termine:
+#   10:30 Uhr → 08:30 UTC (Sommerzeit) und 09:30 UTC (Winterzeit)
+#   17:30 Uhr → 15:30 UTC (Sommerzeit) und 16:30 UTC (Winterzeit)
+# Die Function prüft selbst, ob in Europe/Berlin gerade ein Slot ist, und
+# beendet sich sonst, bevor sie die Datenbank anfasst. Die Uhrzeiten lassen
+# sich über REFRESH_TIMES ändern – dann müssen die Termine hier mitziehen.
 [functions."snapshot"]
-  schedule = "0 9 * * *"
+  schedule = "30 8 * * *"
 
 [functions."snapshot-winter"]
-  schedule = "0 10 * * *"
+  schedule = "30 9 * * *"
+
+[functions."snapshot-pm"]
+  schedule = "30 15 * * *"
+
+[functions."snapshot-pm-winter"]
+  schedule = "30 16 * * *"
 
 # --- Bot-Rauschen abfangen ------------------------------------------------------
 # Scanner probieren auf jeder Domain dieselben Pfade (WordPress, PHP, .env).

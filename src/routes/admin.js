@@ -12,9 +12,9 @@ const payout = require('../lib/payout');
 const brandsLib = require('../lib/brands');
 const leadsLib = require('../lib/leads');
 const adminUsers = require('../lib/adminUsers');
-const { importSalesCsv } = require('../services/importSales');
+const { importAnyCsv } = require('../services/importSales');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
-const { localDate, monthKey, addDays } = require('../lib/dates');
+const { localDate, monthKey, addDays, nextRefreshLabel } = require('../lib/dates');
 
 const router = express.Router();
 const upload = multer({
@@ -145,6 +145,7 @@ router.get('/', async (req, res) => {
     totals,
     top,
     refreshTime: config.refresh.label,
+    nextRefresh: nextRefreshLabel(),
     timezone: config.refresh.timezone,
     hasSmtp: mailer.hasSmtp(),
     flash: req.query.ok || null,
@@ -563,12 +564,11 @@ router.get('/import', async (req, res) => {
 });
 
 router.get('/import/vorlage.csv', (req, res) => {
-  const today = localDate();
   const csv = [
-    'order_ref;code;order_date;gross_amount;net_amount;status',
-    `1001;LUAN15;${today};89,90;75,55;paid`,
-    `1002;LUAN15;${today};45,00;37,82;paid`,
-    `1003;MIRA10;${addDays(today, -1)};129,00;108,40;refunded`,
+    'Nettoumsatz;Creatorbeteiligung in %;Creatorname',
+    '89,90;30;Max Mustermann',
+    '45,00;30;Max Mustermann',
+    '129,00;50;Mira Beispiel',
   ].join('\n');
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="umsatz-vorlage.csv"');
@@ -596,11 +596,24 @@ router.post('/import', upload.single('file'), async (req, res) => {
   if (!req.file) return res.redirect('/admin/import');
 
   const text = req.file.buffer.toString('utf8');
-  const result = await importSalesCsv(text, {
+  const result = await importAnyCsv(text, {
     brandId: brand.id,
     filename: req.file.originalname,
     actor: config.adminName,
+    force: Boolean(req.body && req.body.force),
   });
+
+  // Der Upload ist der Moment, in dem neue Zahlen da sind – also sofort den
+  // Stand für die Dashboards erzeugen, statt auf den Sicherheitslauf zu warten.
+  if (result.ok) {
+    try {
+      const snap = await buildSnapshot({ triggeredBy: 'import' });
+      result.snapshot = { ok: true, ...snap };
+    } catch (err) {
+      console.error('Snapshot nach Import fehlgeschlagen:', err.message);
+      result.snapshot = { ok: false, error: err.message };
+    }
+  }
 
   res.render('admin/import', {
     title: 'Umsätze importieren',
@@ -639,8 +652,10 @@ async function importSummary(rawId) {
     [id]
   );
   const codes = await db.many(
-    `SELECT code_norm, COUNT(*)::int AS rows FROM sales WHERE import_id = $1
-      GROUP BY code_norm ORDER BY rows DESC LIMIT 12`,
+    `SELECT COALESCE(NULLIF(creator_name, ''), NULLIF(code_norm, ''), '–') AS code_norm,
+            COUNT(*)::int AS rows
+       FROM sales WHERE import_id = $1
+      GROUP BY 1 ORDER BY rows DESC LIMIT 12`,
     [id]
   );
   return { id, record, stats, codes };

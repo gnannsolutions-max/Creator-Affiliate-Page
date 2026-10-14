@@ -7,6 +7,7 @@ const { dashboardFor } = require('../services/snapshot');
 const { barChart } = require('../lib/chart');
 const payout = require('../lib/payout');
 const brandsLib = require('../lib/brands');
+const { nextRefreshLabel } = require('../lib/dates');
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.get('/dashboard', auth.requireApprovedCreator, async (req, res) => {
     .map((row) => ({ ...row, totals: byBrand[String(row.brand_id)] || null }));
 
   res.render('dashboard', {
+    nextRefresh: nextRefreshLabel(),
     title: 'Dashboard',
     nav: 'dashboard',
     run: data?.run || null,

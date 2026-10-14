@@ -44,6 +44,36 @@ if (!databaseUrl && !isServerless) {
   });
 }
 
+/**
+ * „10:30,17:30“ → [{hour:10, minute:30, label:'10:30'}, …], sortiert.
+ * Fällt auf REFRESH_HOUR/REFRESH_MINUTE zurück, falls jemand noch die alte
+ * Einzelvariable gesetzt hat, und sonst auf 10:30 und 17:30 Uhr.
+ */
+function parseSlots(list, legacyHour, legacyMinute) {
+  let raw = String(list || '').trim();
+  if (!raw && legacyHour !== undefined && legacyHour !== '') {
+    raw = `${legacyHour}:${legacyMinute || 0}`;
+  }
+  if (!raw) raw = '10:30,17:30';
+  const slots = [];
+  for (const part of raw.split(/[,;\s]+/).filter(Boolean)) {
+    const m = part.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
+    if (!m) continue;
+    const hour = Number(m[1]);
+    const minute = Number(m[2] || 0);
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) continue;
+    const label = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    if (!slots.some((s) => s.label === label)) slots.push({ hour, minute, label });
+  }
+  if (!slots.length) slots.push({ hour: 10, minute: 30, label: '10:30' }, { hour: 17, minute: 30, label: '17:30' });
+  return slots.sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+}
+
+function listDe(items) {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} und ${items[items.length - 1]}`;
+}
+
 const config = {
   root,
   isProd,
@@ -109,11 +139,13 @@ const config = {
   },
 
   refresh: {
-    // Stunde und Minute in der Programm-Zeitzone. Auf Netlify läuft der
-    // Scheduler stündlich in UTC und prüft gegen diese Werte – dadurch bleibt
+    // Sicherheitsläufe in der Programm-Zeitzone, als Liste „HH:MM,HH:MM“.
+    // Der eigentliche Stand entsteht direkt nach jedem Upload; diese Läufe
+    // greifen nur, wenn ein Upload ohne Snapshot geblieben ist oder heute noch
+    // kein Stand erzeugt wurde. Auf Netlify laufen die Scheduled Functions in
+    // UTC (siehe netlify.toml) und prüfen gegen diese Werte – dadurch bleibt
     // die Uhrzeit über die Sommerzeitumstellung hinweg korrekt.
-    hour: Number(process.env.REFRESH_HOUR ?? 11),
-    minute: Number(process.env.REFRESH_MINUTE ?? 0),
+    slots: parseSlots(process.env.REFRESH_TIMES, process.env.REFRESH_HOUR, process.env.REFRESH_MINUTE),
     timezone: process.env.REFRESH_TIMEZONE || 'Europe/Berlin',
     // Schutz gegen unbefugtes Auslösen von /api/refresh-snapshot
     secret: process.env.REFRESH_SECRET || '',
@@ -138,9 +170,12 @@ const config = {
   sessionTtlDays: 30,
 };
 
-config.refresh.label = `${String(config.refresh.hour).padStart(2, '0')}:${String(
-  config.refresh.minute
-).padStart(2, '0')} Uhr`;
+// Der erste Slot bleibt als hour/minute erreichbar – für Code, der nur einen
+// Zeitpunkt kennt (z. B. ältere Aufrufer der API).
+config.refresh.hour = config.refresh.slots[0].hour;
+config.refresh.minute = config.refresh.slots[0].minute;
+// „10:30 und 17:30 Uhr“
+config.refresh.label = `${listDe(config.refresh.slots.map((s) => s.label))} Uhr`;
 
 if (isProd) {
   if (config.sessionSecret && config.sessionSecret.length < 32) {

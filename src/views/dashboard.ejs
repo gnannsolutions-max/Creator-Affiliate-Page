@@ -5,9 +5,9 @@
     <h1>Hallo <%= creator.full_name.split(' ')[0] %></h1>
     <p>
       <% if (run) { %>
-        Stand: <strong><%= run.as_of_label %></strong> · nächste Aktualisierung morgen um 11:00 Uhr
+        Stand: <strong><%= run.as_of_label %></strong> · aktualisiert zweimal täglich, sobald die neuen Bestellungen eingespielt sind (spätestens <%= nextRefresh %>)
       <% } else { %>
-        Die erste Aktualisierung läuft morgen um 11:00 Uhr.
+        Die erste Aktualisierung kommt mit dem ersten Einspielen der Bestellungen, spätestens <%= nextRefresh %>.
       <% } %>
     </p>
   </div>
@@ -71,7 +71,7 @@
 
   <% if (!totals) { %>
     <div class="note note--info">
-      <p><strong>Noch keine Zahlen.</strong> Sobald über deinen Code die erste Bestellung eingeht, siehst du sie hier beim nächsten Lauf um 11:00 Uhr.</p>
+      <p><strong>Noch keine Zahlen.</strong> Sobald über deinen Link oder Code die erste Bestellung eingeht, siehst du sie hier bei der nächsten Aktualisierung – spätestens <%= nextRefresh %>.</p>
     </div>
   <% } else { %>
 

@@ -84,19 +84,20 @@
   </div>
 
   <div class="card">
-    <h2>So liest das Portal die Datei</h2>
+    <h2>So sieht die Datei aus</h2>
+    <p class="small muted" style="margin-bottom:12px">Drei Spalten, eine Zeile je Bestellung. Die Reihenfolge der Spalten ist egal, die Überschriften dürfen auch anders heißen (z.&nbsp;B. „Creator“, „Provision“, „Netto“).</p>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Feld</th><th>Pflicht</th><th>Erkannte Spaltennamen</th></tr></thead>
+        <thead><tr><th>Creatorname</th><th class="num">Prozentsatz</th><th class="num">Nettoumsatz</th></tr></thead>
         <tbody>
-          <tr><td>Nettoumsatz</td><td>ja</td><td class="small mono">Nettoumsatz, Netto, Umsatz, Betrag, net_amount – ein Betrag je Bestellung</td></tr>
-          <tr><td>Creatorbeteiligung</td><td>ja</td><td class="small mono">Creatorbeteiligung in %, Beteiligung, Provision, Anteil – als „30“, „30 %“ oder „0,3“</td></tr>
-          <tr><td>Creatorname</td><td>ja</td><td class="small mono">Creatorname, Creator, Name – muss dem Namen im Portal entsprechen; alternativ der Instagram-Handle</td></tr>
+          <tr><td>Max Mustermann</td><td class="num">30</td><td class="num">89,90</td></tr>
+          <tr><td>Max Mustermann</td><td class="num">30</td><td class="num">45,00</td></tr>
+          <tr><td>Mira Beispiel</td><td class="num">50</td><td class="num">129,00</td></tr>
         </tbody>
       </table>
     </div>
     <p class="small muted" style="margin-top:12px">
-      Jede Zeile ist eine Bestellung und wird auf den Tag des Uploads gebucht. Die Datei hat keine Bestellnummern – deshalb wird derselbe Inhalt nicht zweimal angenommen. Eine Bestellliste im alten Format (mit Bestellnummer, Rabattcode und Datum) wird weiterhin erkannt und wie bisher verarbeitet.
+      Drei Zeilen = drei Bestellungen: zwei von Max (je 30&nbsp;% Beteiligung), eine von Mira (50&nbsp;%). Der Name muss dem Namen des Creators im Portal entsprechen – Groß-/Kleinschreibung, Leerzeichen und Umlaute spielen keine Rolle; ersatzweise geht der Instagram-Handle. Jede Bestellung wird auf den Tag des Uploads gebucht. Weil die Datei keine Bestellnummern hat, wird derselbe Inhalt nicht zweimal angenommen.
     </p>
   </div>
 

@@ -25,12 +25,11 @@ const LIMITS = {
 // --- Startseite --------------------------------------------------------------
 
 /**
- * Die Startseite ist die Landingpage, nicht das Formular. Die Bewerbung läuft
- * über das externe Onboarding unter apply.buzzing.io – alle Bewerbungs-Buttons
- * der Startseite führen direkt dorthin. Das interne Formular /bewerben bleibt
- * erreichbar (Login-Seite, Navigation), ist aber nicht mehr der Hauptweg.
+ * Die Startseite ist die Landingpage, nicht das Formular. Alle Bewerbungs-
+ * Buttons führen auf den eigenen Bewerbungsbogen /bewerben. Über APPLY_URL
+ * lässt sich das auf eine andere Adresse umbiegen, falls nötig.
  */
-const APPLY_URL = process.env.APPLY_URL || 'https://apply.buzzing.io';
+const APPLY_URL = process.env.APPLY_URL || '/bewerben';
 
 router.get('/', (req, res) => {
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');

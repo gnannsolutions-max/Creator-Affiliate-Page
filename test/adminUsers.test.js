@@ -75,3 +75,4 @@ test('Rollen sind beschriftet', () => {
   assert.equal(users.roleLabel('manager'), 'Creator Success');
   assert.equal(users.roleLabel('unbekannt'), 'unbekannt');
 });
+

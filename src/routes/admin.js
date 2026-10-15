@@ -54,14 +54,16 @@ router.post('/login', async (req, res) => {
   const email = String(req.body.email || '').trim();
   const password = req.body.password;
 
-  // Zwei Wege hinein. Ohne Adresse zählt ADMIN_PASSWORD – der Notzugang des
-  // Inhabers, der unabhängig von der Nutzertabelle funktioniert. Mit Adresse
-  // wird in admin_users gesucht.
+  // Anmeldung nur mit E-Mail-Adresse und Passwort aus der Zugangsliste.
+  // Der Notzugang über ADMIN_PASSWORD (ohne Adresse) funktioniert nur, solange
+  // noch kein Inhaber-Zugang angelegt ist – damit beim allerersten Start
+  // niemand ausgesperrt ist. Sobald es einen Inhaber gibt, ist er abgeschaltet.
   let user = null;
+  const ownerExists = await db.one("SELECT id FROM admin_users WHERE role = 'owner' AND active LIMIT 1");
   if (email) {
     user = await adminUsers.authenticate(email, password);
-  } else if (auth.checkAdminPassword(password)) {
-    user = null; // Inhaber über den Notzugang
+  } else if (!ownerExists && auth.checkAdminPassword(password)) {
+    user = null; // Ersteinrichtung über den Notzugang
   } else {
     user = false; // Kennzeichnet: fehlgeschlagen
   }

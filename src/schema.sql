@@ -410,12 +410,21 @@ CREATE TABLE IF NOT EXISTS brokers (
   email         TEXT        NOT NULL,
   email_norm    TEXT        NOT NULL,
   share_rate    DOUBLE PRECISION NOT NULL DEFAULT 5,
-  status        TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused')),
+  status        TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active','paused','rejected')),
   note          TEXT,
+  instagram     TEXT,
+  phone         TEXT,
+  message       TEXT,
   last_login_at TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_brokers_email ON brokers(email_norm);
+-- Vermittler bewerben sich selbst über /vermittler-werden und warten auf Freigabe.
+ALTER TABLE brokers DROP CONSTRAINT IF EXISTS brokers_status_check;
+ALTER TABLE brokers ADD CONSTRAINT brokers_status_check CHECK (status IN ('pending','active','paused','rejected'));
+ALTER TABLE brokers ADD COLUMN IF NOT EXISTS instagram TEXT;
+ALTER TABLE brokers ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE brokers ADD COLUMN IF NOT EXISTS message TEXT;
 
 ALTER TABLE creators ADD COLUMN IF NOT EXISTS broker_id BIGINT REFERENCES brokers(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_creators_broker ON creators(broker_id);

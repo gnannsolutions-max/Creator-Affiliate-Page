@@ -141,8 +141,12 @@ muss `{"ok":true,…}` liefern.
 ## Vermittler
 
 Ein Vermittler bringt Creator ins Programm und wird am Umsatz seiner Creator
-beteiligt – unabhängig von deren Provision. Unter *Admin → Vermittler* wird er
-mit Name, E-Mail und Prozentsatz angelegt. Dort stehen auch:
+beteiligt – unabhängig von deren Provision. Interessenten bewerben sich unter
+`/vermittler-werden` (Name, E-Mail, optional Telefon/Instagram/Nachricht –
+keine Creator-Kennung); die Bewerbung landet unter *Admin → Vermittler* als
+„Ausstehend“. Freigabe = Beteiligung eintragen, Status „Aktiv“, speichern.
+Alternativ legt der Admin einen Vermittler dort direkt an. Auf seiner Seite
+stehen dann:
 
 - sein **Bewerbungslink** `/bewerben?src=vermittler-<id>` – wer sich darüber
   bewirbt, hängt automatisch an ihm; nachträglich lässt sich das auf der

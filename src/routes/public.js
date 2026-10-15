@@ -176,6 +176,65 @@ router.post('/bewerben', async (req, res) => {
   });
 });
 
+// --- Vermittler-Bewerbung ----------------------------------------------------
+
+function renderBrokerApply(res, { values = {}, errors = {}, sent = false, status = 200 } = {}) {
+  return res.status(status).render('broker-apply', { title: 'Als Vermittler bewerben', nav: 'broker-apply', values, errors, sent });
+}
+
+router.get('/vermittler-werden', (req, res) => renderBrokerApply(res));
+
+router.post('/vermittler-werden', async (req, res) => {
+  const ip = rateLimit.clientIp(req);
+  const gate = await rateLimit.hit(`apply:${ip}`, LIMITS.apply);
+  if (!gate.allowed) {
+    res.set('Retry-After', String(gate.retryAfter));
+    return renderBrokerApply(res, {
+      status: 429,
+      errors: { form: 'Von dieser Verbindung sind gerade zu viele Bewerbungen eingegangen. Bitte versuche es in einer Stunde noch einmal.' },
+    });
+  }
+
+  const values = {
+    full_name: String(req.body.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    email: String(req.body.email || '').trim().slice(0, 200),
+    phone: String(req.body.phone || '').trim().slice(0, 60) || null,
+    instagram: String(req.body.instagram || '').trim().replace(/^@/, '').slice(0, 60) || null,
+    message: String(req.body.message || '').trim().slice(0, 2000) || null,
+    accept_terms: req.body.accept_terms,
+    accept_privacy: req.body.accept_privacy,
+  };
+  const errors = {};
+  if (values.full_name.length < 3 || !values.full_name.includes(' ')) errors.full_name = 'Bitte gib deinen vollständigen Vor- und Nachnamen an.';
+  const emailNorm = normalizeEmail(values.email);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailNorm)) errors.email = 'Bitte gib eine gültige E-Mail-Adresse an.';
+  else if (await db.one('SELECT id FROM brokers WHERE email_norm = $1', [emailNorm])) errors.email = 'Für diese E-Mail-Adresse liegt bereits eine Bewerbung vor.';
+  if (!values.accept_terms) errors.accept_terms = 'Ohne Zustimmung zu den Teilnahmebedingungen können wir dich nicht aufnehmen.';
+  if (!values.accept_privacy) errors.accept_privacy = 'Bitte bestätige die Datenschutzhinweise.';
+  if (Object.keys(errors).length) return renderBrokerApply(res, { values, errors, status: 400 });
+
+  const broker = await db.one(
+    `INSERT INTO brokers (full_name, email, email_norm, share_rate, status, phone, instagram, message)
+     VALUES ($1, $2, $3, 0, 'pending', $4, $5, $6) RETURNING *`,
+    [values.full_name, values.email, emailNorm, values.phone, values.instagram, values.message]
+  );
+  await db.log('broker', 'broker.application', broker.email, broker.full_name);
+
+  if (config.notifyEmail) {
+    await mailer
+      .send({
+        to: config.notifyEmail,
+        kind: 'notification',
+        link: `${config.baseUrl}/admin/brokers/${broker.id}`,
+        subject: `Neue Vermittler-Bewerbung: ${broker.full_name}`,
+        text: `Neue Vermittler-Bewerbung im Portal.\n\nName:   ${broker.full_name}\nE-Mail: ${broker.email}${broker.phone ? `\nTelefon: ${broker.phone}` : ''}${broker.instagram ? `\nInstagram: @${broker.instagram}` : ''}${broker.message ? `\n\n${broker.message}` : ''}\n\nFreigeben: ${config.baseUrl}/admin/brokers/${broker.id}`,
+      })
+      .catch((err) => console.error('Benachrichtigung fehlgeschlagen:', err.message));
+  }
+
+  return renderBrokerApply(res, { sent: true });
+});
+
 // --- Login -------------------------------------------------------------------
 
 router.get('/login', (req, res) => {
@@ -208,7 +267,7 @@ router.post('/login', async (req, res) => {
   }
 
   const creator = await db.one('SELECT * FROM creators WHERE email_norm = $1', [email]);
-  const broker = creator ? null : await db.one('SELECT * FROM brokers WHERE email_norm = $1', [email]);
+  const broker = creator ? null : await db.one("SELECT * FROM brokers WHERE email_norm = $1 AND status IN ('active','paused')", [email]);
 
   // Bewusst immer dieselbe Rückmeldung – sonst verrät das Formular,
   // welche Adressen im System sind.

@@ -487,14 +487,14 @@ const BROKER_LIST = `
     FROM brokers b
     LEFT JOIN snapshot_broker_totals t
       ON t.broker_id = b.id AND t.run_id = (SELECT id FROM snapshot_runs ORDER BY id DESC LIMIT 1)
-   ORDER BY b.status, b.full_name`;
+   ORDER BY CASE b.status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END, b.full_name`;
 
 function validateBroker(body) {
   const values = {
     full_name: String(body.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 120),
     email: String(body.email || '').trim().slice(0, 200),
     share_rate: Number(String(body.share_rate || '').replace(',', '.')),
-    status: body.status === 'paused' ? 'paused' : 'active',
+    status: ['active', 'paused', 'rejected'].includes(body.status) ? body.status : 'active',
     note: String(body.note || '').trim().slice(0, 2000) || null,
   };
   const errors = {};

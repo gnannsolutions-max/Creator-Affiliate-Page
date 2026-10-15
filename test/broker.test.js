@@ -25,7 +25,9 @@ test.before(async () => {
   try {
     await db.migrate();
     await db.run("DELETE FROM creators WHERE email_norm IN ('vermittelt@test.de','direkt@test.de')");
-    await db.run("DELETE FROM brokers WHERE email_norm = 'vermittler@test.de'");
+    await db.run("DELETE FROM brokers WHERE email_norm IN ('vermittler@test.de','bewerber@test.de')");
+    // Bewerbungs-Rate-Limit aus früheren Testläufen zurücksetzen
+    await db.run("DELETE FROM rate_limits WHERE bucket LIKE 'apply:%' OR bucket LIKE 'login%'");
     server = createApp().listen(0);
     base = `http://127.0.0.1:${server.address().port}`;
   } catch (err) {
@@ -136,6 +138,54 @@ test('Vermittler: anlegen, Bewerbung über seinen Link, Beteiligung im Dashboard
   assert.strictEqual(r.status, 302);
   const after = await brokerDashboardFor(broker.id);
   assert.strictEqual(after.totals.share_total, 60, 'nach Satzänderung sofort neu berechnet');
+});
+
+test('Vermittler bewirbt sich selbst, wird erst nach Freigabe aktiv und kann sich erst dann anmelden', async (t) => {
+  if (!available) return t.skip('kein Postgres');
+
+  // Bewerbung über /vermittler-werden – kein Kennungsfeld, kein Code
+  let r = await fetch(`${base}/vermittler-werden`);
+  let html = await r.text();
+  assert.ok(html.includes('Als Vermittler bewerben'));
+  assert.ok(!html.includes('Creator-Kennung'), 'kein Kennungsfeld im Vermittler-Formular');
+
+  r = await fetch(`${base}/vermittler-werden`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ full_name: 'Bernd Bewerber', email: 'bewerber@test.de', phone: '0170', message: 'Kenne 20 Creator', accept_terms: '1', accept_privacy: '1' }),
+  });
+  assert.strictEqual(r.status, 200);
+  assert.ok((await r.text()).includes('Danke, deine Bewerbung ist da'));
+  const b = await db.one("SELECT * FROM brokers WHERE email_norm = 'bewerber@test.de'");
+  assert.strictEqual(b.status, 'pending');
+  assert.strictEqual(b.share_rate, 0);
+
+  // Login vor Freigabe: Formular antwortet neutral, aber es gibt keinen Token
+  r = await fetch(`${base}/login`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: 'bewerber@test.de' }) });
+  const tokensBefore = await db.one('SELECT COUNT(*)::int AS n FROM login_tokens WHERE broker_id = $1', [b.id]);
+  assert.strictEqual(tokensBefore.n, 0, 'vor Freigabe kein Login-Link');
+
+  // Admin gibt frei: 12 %, Aktiv
+  const cookie = await adminSession();
+  r = await fetch(`${base}/admin/brokers`, {
+    method: 'POST', redirect: 'manual',
+    headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ id: String(b.id), full_name: b.full_name, email: b.email, share_rate: '12', status: 'active' }),
+  });
+  assert.strictEqual(r.status, 302);
+  const after = await db.one('SELECT * FROM brokers WHERE id = $1', [b.id]);
+  assert.strictEqual(after.status, 'active');
+  assert.strictEqual(after.share_rate, 12);
+
+  // Jetzt erzeugt der Login einen Token
+  await fetch(`${base}/login`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: 'bewerber@test.de' }) });
+  const tokensAfter = await db.one('SELECT COUNT(*)::int AS n FROM login_tokens WHERE broker_id = $1', [b.id]);
+  assert.strictEqual(tokensAfter.n, 1, 'nach Freigabe wird ein Login-Link erzeugt');
+
+  // Admin-Seite zeigt den Bewerbungslink für Creator
+  r = await fetch(`${base}/admin/brokers/${b.id}`, { headers: { cookie } });
+  html = await r.text();
+  assert.ok(html.includes(`/bewerben?src=vermittler-${b.id}`), 'Bewerbungslink für Creator sichtbar');
 });
 
 test.after(async () => {

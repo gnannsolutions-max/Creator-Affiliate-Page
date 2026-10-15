@@ -3,7 +3,7 @@
 <main class="wrap">
   <div class="page-head">
     <h1>Vermittler</h1>
-    <p>Vermittler bringen Creator ins Programm und werden am Umsatz ihrer Creator beteiligt. Jeder hat ein eigenes Dashboard und einen eigenen Bewerbungslink.</p>
+    <p>Vermittler bringen Creator ins Programm und werden am Umsatz ihrer Creator beteiligt. Interessenten bewerben sich unter <span class="mono"><%= baseUrl %>/vermittler-werden</span>; nach der Freigabe haben sie ein eigenes Dashboard und einen eigenen Bewerbungslink für Creator.</p>
   </div>
 
   <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
@@ -19,7 +19,19 @@
   </div>
   <% } %>
 
-  <% if (editing) { %>
+  <% if (editing && editing.status === 'pending') { %>
+  <div class="note note--warn">
+    <p><strong>Bewerbung ausstehend.</strong> Beteiligung eintragen, Status auf „Aktiv“ setzen und speichern – dann kann sich <%= editing.full_name.split(' ')[0] %> anmelden und bekommt seinen Bewerbungslink.</p>
+    <p class="small">
+      <% if (editing.phone) { %>Telefon: <%= editing.phone %> · <% } %>
+      <% if (editing.instagram) { %>Instagram: @<%= editing.instagram %> · <% } %>
+      Beworben am <%= formatDateTimeDe(editing.created_at) %>
+    </p>
+    <% if (editing.message) { %><p class="small" style="white-space:pre-wrap"><%= editing.message %></p><% } %>
+  </div>
+  <% } %>
+
+  <% if (editing && editing.status !== 'pending' && editing.status !== 'rejected') { %>
   <div class="card">
     <h2>Bewerbungslink von <%= editing.full_name %></h2>
     <p class="small muted">Diesen Link gibt der Vermittler an seine Creator. Wer sich darüber bewirbt, wird ihm automatisch zugeordnet.</p>
@@ -60,8 +72,10 @@
       <div class="field">
         <label for="status">Status</label>
         <select id="status" name="status">
-          <option value="active" <%= values.status === 'paused' ? '' : 'selected' %>>Aktiv</option>
+          <% if (values.status === 'pending') { %><option value="pending" disabled selected>Ausstehend – wähle Aktiv zum Freigeben</option><% } %>
+          <option value="active" <%= values.status === 'active' || !values.status ? 'selected' : '' %>>Aktiv – freigegeben, kann sich anmelden</option>
           <option value="paused" <%= values.status === 'paused' ? 'selected' : '' %>>Pausiert – Bewerbungslink ordnet nicht mehr zu</option>
+          <option value="rejected" <%= values.status === 'rejected' ? 'selected' : '' %>>Abgelehnt</option>
         </select>
       </div>
       <div class="field">
@@ -122,7 +136,7 @@
             <td class="num"><%= money(b.revenue_30d || 0) %></td>
             <td class="num"><%= money(b.share_30d || 0) %></td>
             <td class="num"><%= money(b.share_total || 0) %></td>
-            <td><span class="badge badge--<%= b.status === 'active' ? 'good' : 'neutral' %>"><%= b.status === 'active' ? 'Aktiv' : 'Pausiert' %></span></td>
+            <td><span class="badge badge--<%= b.status === 'active' ? 'good' : (b.status === 'pending' ? 'warn' : (b.status === 'rejected' ? 'danger' : 'neutral')) %>"><%= { active: 'Aktiv', pending: 'Ausstehend', paused: 'Pausiert', rejected: 'Abgelehnt' }[b.status] || b.status %></span></td>
             <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/brokers/<%= b.id %>">Bearbeiten</a></td>
           </tr>
           <% }); %>

@@ -138,6 +138,24 @@ muss `{"ok":true,…}` liefern.
 
 ---
 
+## Vermittler
+
+Ein Vermittler bringt Creator ins Programm und wird am Umsatz seiner Creator
+beteiligt – unabhängig von deren Provision. Unter *Admin → Vermittler* wird er
+mit Name, E-Mail und Prozentsatz angelegt. Dort stehen auch:
+
+- sein **Bewerbungslink** `/bewerben?src=vermittler-<id>` – wer sich darüber
+  bewirbt, hängt automatisch an ihm; nachträglich lässt sich das auf der
+  Creator-Seite unter „Status und Notiz → Vermittler“ ändern
+- ein **Login-Link** zum Weitergeben; danach meldet er sich wie Creator über
+  `/login` mit seiner E-Mail an und landet unter `/vermittler`
+
+Das Vermittler-Dashboard zeigt den bereinigten Nettoumsatz aller seiner
+Creator (dieselben Zahlen, die die Creator sehen), seine Beteiligung und eine
+Liste je Creator. Satz- und Zuordnungsänderungen wirken sofort.
+
+---
+
 ## WooCommerce-Anbindung (statt Upload)
 
 Ist der Shop angebunden, holen die Sicherheitsläufe um 10:30 und 17:30 Uhr die

@@ -394,3 +394,62 @@ CREATE TABLE IF NOT EXISTS admin_users (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_admin_users_email ON admin_users(email_norm);
+
+-- --- Vermittler --------------------------------------------------------------
+--  Ein Vermittler bringt Creator ins Programm und wird am Nettoumsatz „seiner“
+--  Creator beteiligt. Er hat ein eigenes Dashboard und bekommt einen eigenen
+--  Bewerbungslink (/bewerben?src=vermittler-<id>): Wer sich darüber bewirbt,
+--  hängt automatisch an ihm.
+--
+--  Der Prozentsatz gilt je Vermittler für alle seine Creator und bezieht sich
+--  auf denselben bereinigten Nettoumsatz, den der Creator sieht. Beteiligung
+--  des Vermittlers und Provision des Creators sind unabhängig voneinander.
+CREATE TABLE IF NOT EXISTS brokers (
+  id            BIGSERIAL PRIMARY KEY,
+  full_name     TEXT        NOT NULL,
+  email         TEXT        NOT NULL,
+  email_norm    TEXT        NOT NULL,
+  share_rate    DOUBLE PRECISION NOT NULL DEFAULT 5,
+  status        TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused')),
+  note          TEXT,
+  last_login_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_brokers_email ON brokers(email_norm);
+
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS broker_id BIGINT REFERENCES brokers(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_creators_broker ON creators(broker_id);
+
+-- Login-Links gelten jetzt für Creator ODER Vermittler.
+ALTER TABLE login_tokens ADD COLUMN IF NOT EXISTS broker_id BIGINT REFERENCES brokers(id) ON DELETE CASCADE;
+ALTER TABLE login_tokens ALTER COLUMN creator_id DROP NOT NULL;
+
+-- Stand je Vermittler, eingefroren wie alles andere im Snapshot.
+CREATE TABLE IF NOT EXISTS snapshot_broker_totals (
+  run_id        BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  broker_id     BIGINT NOT NULL REFERENCES brokers(id) ON DELETE CASCADE,
+  creators_count INTEGER NOT NULL DEFAULT 0,
+  orders_total  INTEGER NOT NULL DEFAULT 0,
+  revenue_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+  share_total   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  orders_30d    INTEGER NOT NULL DEFAULT 0,
+  revenue_30d   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  share_30d     DOUBLE PRECISION NOT NULL DEFAULT 0,
+  revenue_prev30d DOUBLE PRECISION NOT NULL DEFAULT 0,
+  PRIMARY KEY (run_id, broker_id)
+);
+
+-- Aufschlüsselung je Creator für das Vermittler-Dashboard.
+CREATE TABLE IF NOT EXISTS snapshot_broker_creators (
+  run_id        BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  broker_id     BIGINT NOT NULL REFERENCES brokers(id) ON DELETE CASCADE,
+  creator_id    BIGINT NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  orders_total  INTEGER NOT NULL DEFAULT 0,
+  revenue_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+  share_total   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  orders_30d    INTEGER NOT NULL DEFAULT 0,
+  revenue_30d   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  share_30d     DOUBLE PRECISION NOT NULL DEFAULT 0,
+  last_sale_date TEXT,
+  PRIMARY KEY (run_id, broker_id, creator_id)
+);

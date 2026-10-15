@@ -1,0 +1,90 @@
+<%- include('partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Hallo <%= broker.full_name.split(' ')[0] %></h1>
+    <p>
+      <% if (run) { %>
+        Stand: <strong><%= run.as_of_label %></strong> · wird laufend aktualisiert, sobald eine Bestellung über einen deiner Creator eingeht
+      <% } else { %>
+        Deine Zahlen erscheinen hier automatisch, sobald die erste Bestellung über einen deiner Creator eingeht.
+      <% } %>
+    </p>
+  </div>
+
+  <% if (!totals || !creators.length) { %>
+    <div class="note note--info">
+      <p><strong>Noch keine Zahlen.</strong> Sobald einer deiner Creator freigegeben ist und die erste Bestellung über ihn eingeht, siehst du sie hier.</p>
+    </div>
+  <% } else { %>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Umsatz gesamt</div>
+      <div class="stat-value"><%= money(totals.revenue_total) %></div>
+      <div class="stat-sub"><%= num(totals.orders_total) %> <%= totals.orders_total === 1 ? 'Bestellung' : 'Bestellungen' %> · <%= num(totals.creators_count) %> Creator</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Deine Beteiligung gesamt</div>
+      <div class="stat-value"><%= money(totals.share_total) %></div>
+      <div class="stat-sub"><%= percent(broker.share_rate) %> vom Umsatz</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Umsatz 30 Tage</div>
+      <div class="stat-value"><%= money(totals.revenue_30d) %></div>
+      <% const d = delta(totals.revenue_30d, totals.revenue_prev30d); %>
+      <div class="stat-delta <%= d.direction %>"><%= d.text %> vs. 30 Tage davor</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Beteiligung 30 Tage</div>
+      <div class="stat-value"><%= money(totals.share_30d) %></div>
+      <div class="stat-sub"><%= num(totals.orders_30d) %> Bestellungen</div>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Umsatz der letzten 30 Tage</h2>
+      <span class="sub">Alle deine Creator zusammen · nur bestätigte Bestellungen</span>
+    </div>
+    <div class="card-body"><%- chartHtml %></div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Deine Creator</h2>
+      <span class="sub"><%= num(creators.length) %> mit Zahlen im aktuellen Stand</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Creator</th>
+            <th>Kennung</th>
+            <th class="num">Bestellungen</th>
+            <th class="num">Umsatz 30 Tage</th>
+            <th class="num">Umsatz gesamt</th>
+            <th class="num">Deine Beteiligung</th>
+            <th>Letzte Bestellung</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% creators.forEach(function (c) { %>
+          <tr>
+            <td><%= c.full_name %><% if (c.status === 'paused') { %> <span class="badge badge--neutral">pausiert</span><% } %></td>
+            <td class="mono small"><%= c.requested_code %></td>
+            <td class="num"><%= num(c.orders_total) %></td>
+            <td class="num"><%= money(c.revenue_30d) %></td>
+            <td class="num"><%= money(c.revenue_total) %></td>
+            <td class="num"><%= money(c.share_total) %></td>
+            <td class="small"><%= c.last_sale_date ? formatDateDe(c.last_sale_date) : '–' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <% } %>
+</main>
+
+<%- include('partials/foot') %>

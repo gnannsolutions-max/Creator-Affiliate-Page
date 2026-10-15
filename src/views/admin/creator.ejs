@@ -150,7 +150,7 @@
       <% }); %>
       <div class="actions">
         <button class="btn" type="submit">Marken speichern</button>
-        <span class="small muted">Eine Codeänderung wirkt erst ab dem nächsten Import – alte Bestellungen bleiben dem alten Code zugeordnet.</span>
+        <span class="small muted">Wirkt sofort. Bestellungen, die bereits mit dieser Kennung eingegangen sind und noch niemandem gehören, werden übernommen.</span>
       </div>
     </form>
   </div>
@@ -163,6 +163,16 @@
         <select id="status" name="status">
           <option value="approved" <%= c.status === 'approved' ? 'selected' : '' %>>Aktiv</option>
           <option value="paused" <%= c.status === 'paused' ? 'selected' : '' %>>Pausiert</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="broker_id">Vermittler</label>
+        <p class="hint">Wer hat diesen Creator gebracht? Der Vermittler sieht dessen Umsätze in seinem Dashboard und wird daran beteiligt.</p>
+        <select id="broker_id" name="broker_id">
+          <option value="">– kein Vermittler –</option>
+          <% brokerList.forEach(function (b) { %>
+            <option value="<%= b.id %>" <%= String(c.broker_id) === String(b.id) ? 'selected' : '' %>><%= b.full_name %> (<%= percent(b.share_rate) %>)<%= b.status === 'paused' ? ' – pausiert' : '' %></option>
+          <% }); %>
         </select>
       </div>
       <div class="field">

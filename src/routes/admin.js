@@ -99,7 +99,7 @@ router.use(auth.requireAdmin);
 // vorbehalten – Geld, Konditionen und Zugänge. Die Prüfung hängt am Pfad und
 // nicht an den Routen einzeln, damit beim Nachrüsten einer Route niemand
 // vergisst, sie abzusichern.
-router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db', '/woo'], auth.requireRole('owner'));
+router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db', '/woo', '/brokers'], auth.requireRole('owner'));
 
 /** Wer die Aktion ausgelöst hat – steht so im Protokoll. */
 const actor = (req) => (req.admin && req.admin.name) || config.adminName;
@@ -220,7 +220,11 @@ async function renderCreator(req, res, extra = {}) {
 
   // Marken und die bereits vergebenen Codes – daraus baut die Seite das
   // Zuweisungsformular und die Liste der Links.
-  const [brandList, codes] = await Promise.all([brandsLib.all(), brandsLib.codesFor(c.id)]);
+  const [brandList, codes, brokerList] = await Promise.all([
+    brandsLib.all(),
+    brandsLib.codesFor(c.id),
+    db.many('SELECT id, full_name, share_rate, status FROM brokers ORDER BY full_name'),
+  ]);
   const codeByBrand = Object.fromEntries(codes.map((row) => [String(row.brand_id), row]));
 
   return res.render('admin/creator', {
@@ -233,6 +237,7 @@ async function renderCreator(req, res, extra = {}) {
     brandList,
     codes,
     codeByBrand,
+    brokerList,
     formatIban: payout.formatIban,
     taxStatusLabel: payout.TAX_STATUS,
     defaultPeriod: monthKey(addDays(localDate(), -15)),
@@ -457,15 +462,123 @@ router.post('/creators/:id/update', async (req, res) => {
   const id = req.params.id;
   const status = ['approved', 'paused'].includes(req.body.status) ? req.body.status : 'approved';
 
+  const brokerId = req.body.broker_id ? Number(req.body.broker_id) : null;
   await db.run(
-    `UPDATE creators SET status = $1, note_internal = $2 WHERE id = $3`,
-    [status, String(req.body.note_internal || '').slice(0, 2000) || null, id]
+    `UPDATE creators SET status = $1, note_internal = $2, broker_id = $3 WHERE id = $4`,
+    [status, String(req.body.note_internal || '').slice(0, 2000) || null, brokerId, id]
   );
 
-  await db.log(actor(req), 'creator.updated', String(id), `Status ${status}`);
-  res.redirect(
-    `/admin/creators/${id}?ok=${encodeURIComponent('Gespeichert. Wirkt im Creator-Dashboard nach dem nächsten Lauf.')}`
+  await db.log(actor(req), 'creator.updated', String(id), `Status ${status}${brokerId ? `, Vermittler ${brokerId}` : ''}`);
+  // Vermittler-Zuordnung wirkt sofort auf dessen Dashboard.
+  try {
+    await buildSnapshot({ triggeredBy: 'import' });
+  } catch (err) {
+    console.error('Snapshot nach Creator-Update fehlgeschlagen:', err.message);
+  }
+  res.redirect(`/admin/creators/${id}?ok=${encodeURIComponent('Gespeichert.')}`);
+});
+
+// --- Vermittler --------------------------------------------------------------
+
+const BROKER_LIST = `
+  SELECT b.*,
+         (SELECT COUNT(*) FROM creators c WHERE c.broker_id = b.id) AS creators_count,
+         t.revenue_total, t.share_total, t.revenue_30d, t.share_30d
+    FROM brokers b
+    LEFT JOIN snapshot_broker_totals t
+      ON t.broker_id = b.id AND t.run_id = (SELECT id FROM snapshot_runs ORDER BY id DESC LIMIT 1)
+   ORDER BY b.status, b.full_name`;
+
+function validateBroker(body) {
+  const values = {
+    full_name: String(body.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    email: String(body.email || '').trim().slice(0, 200),
+    share_rate: Number(String(body.share_rate || '').replace(',', '.')),
+    status: body.status === 'paused' ? 'paused' : 'active',
+    note: String(body.note || '').trim().slice(0, 2000) || null,
+  };
+  const errors = {};
+  if (values.full_name.length < 2) errors.full_name = 'Bitte einen Namen eintragen.';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) errors.email = 'Bitte eine gültige E-Mail-Adresse eintragen – darüber meldet sich der Vermittler an.';
+  if (!Number.isFinite(values.share_rate) || values.share_rate < 0 || values.share_rate > 100) errors.share_rate = 'Beteiligung in Prozent, zwischen 0 und 100.';
+  return { values, errors };
+}
+
+async function renderBrokers(req, res, extra = {}) {
+  return res.render('admin/brokers', {
+    title: 'Vermittler',
+    nav: 'admin-brokers',
+    rows: await db.many(BROKER_LIST),
+    values: {},
+    errors: {},
+    editing: null,
+    editingCreators: [],
+    baseUrl: config.baseUrl,
+    loginLink: null,
+    flash: req.query.ok || null,
+    ...extra,
+  });
+}
+
+router.get('/brokers', (req, res) => renderBrokers(req, res));
+
+router.get('/brokers/:id', async (req, res) => {
+  const b = await db.one('SELECT * FROM brokers WHERE id = $1', [req.params.id]);
+  if (!b) return res.redirect('/admin/brokers');
+  const editingCreators = await db.many(
+    `SELECT c.id, c.full_name, c.requested_code, c.status, c.instagram FROM creators c WHERE c.broker_id = $1 ORDER BY c.full_name`,
+    [b.id]
   );
+  return renderBrokers(req, res, { editing: b, values: b, editingCreators });
+});
+
+router.post('/brokers', async (req, res) => {
+  const editingId = req.body.id ? Number(req.body.id) : null;
+  const { values, errors } = validateBroker(req.body);
+  const emailNorm = values.email.toLowerCase();
+  if (!errors.email) {
+    const clash = await db.one('SELECT id FROM brokers WHERE email_norm = $1 AND id <> COALESCE($2, 0)', [emailNorm, editingId]);
+    if (clash) errors.email = 'Diese E-Mail-Adresse gehört schon einem anderen Vermittler.';
+  }
+  if (Object.keys(errors).length) {
+    const editing = editingId ? await db.one('SELECT * FROM brokers WHERE id = $1', [editingId]) : null;
+    return renderBrokers(req, res, { values: { ...values, id: editingId }, errors, editing });
+  }
+  let row;
+  if (editingId) {
+    row = await db.one(
+      `UPDATE brokers SET full_name = $1, email = $2, email_norm = $3, share_rate = $4, status = $5, note = $6
+        WHERE id = $7 RETURNING *`,
+      [values.full_name, values.email, emailNorm, values.share_rate, values.status, values.note, editingId]
+    );
+  } else {
+    row = await db.one(
+      `INSERT INTO brokers (full_name, email, email_norm, share_rate, status, note)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [values.full_name, values.email, emailNorm, values.share_rate, values.status, values.note]
+    );
+  }
+  await db.log(actor(req), editingId ? 'broker.updated' : 'broker.created', row.email, `${row.full_name}, ${row.share_rate} %`);
+  // Satzänderung wirkt sofort auf das Vermittler-Dashboard.
+  try {
+    await buildSnapshot({ triggeredBy: 'import' });
+  } catch (err) {
+    console.error('Snapshot nach Vermittler-Änderung fehlgeschlagen:', err.message);
+  }
+  res.redirect(`/admin/brokers/${row.id}?ok=${encodeURIComponent(editingId ? 'Gespeichert.' : 'Vermittler angelegt.')}`);
+});
+
+/** Login-Link für den Vermittler – zum Weitergeben, wie bei Creatorn. */
+router.post('/brokers/:id/login-link', async (req, res) => {
+  const b = await db.one('SELECT * FROM brokers WHERE id = $1', [req.params.id]);
+  if (!b) return res.redirect('/admin/brokers');
+  const token = await auth.createBrokerLoginToken(b.id);
+  await db.log(actor(req), 'broker.login_link', b.email, 'manuell erzeugt');
+  const editingCreators = await db.many(
+    `SELECT c.id, c.full_name, c.requested_code, c.status, c.instagram FROM creators c WHERE c.broker_id = $1 ORDER BY c.full_name`,
+    [b.id]
+  );
+  return renderBrokers(req, res, { editing: b, values: b, editingCreators, loginLink: `${config.baseUrl}/login/${token}` });
 });
 
 // --- Marken ------------------------------------------------------------------

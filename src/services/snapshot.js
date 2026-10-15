@@ -175,6 +175,45 @@ async function buildSnapshot({ triggeredBy = 'cron', slot = null } = {}) {
       [runId, win30From, today]
     );
 
+    // --- Vermittler: Summe über die vermittelten Creator ----------------------
+    //  Baut auf snapshot_totals auf, damit Vermittler und Creator garantiert
+    //  dieselben Umsätze sehen. Beteiligung = Umsatz × Satz des Vermittlers.
+    await t.run(
+      `INSERT INTO snapshot_broker_creators (
+         run_id, broker_id, creator_id, orders_total, revenue_total, share_total,
+         orders_30d, revenue_30d, share_30d, last_sale_date)
+       SELECT $1, b.id, c.id,
+              st.orders_total, st.revenue_total,
+              ROUND((st.revenue_total * b.share_rate / 100)::numeric, 2)::float8,
+              st.orders_30d, st.revenue_30d,
+              ROUND((st.revenue_30d * b.share_rate / 100)::numeric, 2)::float8,
+              st.last_sale_date
+         FROM brokers b
+         JOIN creators c ON c.broker_id = b.id
+         JOIN snapshot_totals st ON st.run_id = $1 AND st.creator_id = c.id`,
+      [runId]
+    );
+    await t.run(
+      `INSERT INTO snapshot_broker_totals (
+         run_id, broker_id, creators_count, orders_total, revenue_total, share_total,
+         orders_30d, revenue_30d, share_30d, revenue_prev30d)
+       SELECT $1, b.id,
+              (SELECT COUNT(*) FROM creators c WHERE c.broker_id = b.id AND c.status IN ('approved','paused')),
+              COALESCE(SUM(x.orders_total), 0),
+              ROUND(COALESCE(SUM(x.revenue_total), 0)::numeric, 2)::float8,
+              ROUND((COALESCE(SUM(x.revenue_total), 0) * b.share_rate / 100)::numeric, 2)::float8,
+              COALESCE(SUM(x.orders_30d), 0),
+              ROUND(COALESCE(SUM(x.revenue_30d), 0)::numeric, 2)::float8,
+              ROUND((COALESCE(SUM(x.revenue_30d), 0) * b.share_rate / 100)::numeric, 2)::float8,
+              ROUND(COALESCE((SELECT SUM(st.revenue_prev30d) FROM snapshot_totals st
+                                JOIN creators c ON c.id = st.creator_id
+                               WHERE st.run_id = $1 AND c.broker_id = b.id), 0)::numeric, 2)::float8
+         FROM brokers b
+         LEFT JOIN snapshot_broker_creators x ON x.run_id = $1 AND x.broker_id = b.id
+        GROUP BY b.id, b.share_rate`,
+      [runId]
+    );
+
     // --- Tagesreihe für den Chart, über alle Marken zusammen ------------------
     await t.run(
       `WITH earnings AS (${EARNINGS})
@@ -287,6 +326,36 @@ async function dashboardFor(creatorId) {
   return { run, totals, days, orders, brands };
 }
 
+/** Alles, was das Vermittler-Dashboard braucht – ausschließlich aus dem Snapshot. */
+async function brokerDashboardFor(brokerId) {
+  const run = await latestRun();
+  if (!run) return null;
+  const totals = await db.one(
+    'SELECT * FROM snapshot_broker_totals WHERE run_id = $1 AND broker_id = $2',
+    [run.id, brokerId]
+  );
+  const creators = await db.many(
+    `SELECT x.*, c.full_name, c.instagram, c.requested_code, c.status
+       FROM snapshot_broker_creators x JOIN creators c ON c.id = x.creator_id
+      WHERE x.run_id = $1 AND x.broker_id = $2
+      ORDER BY x.revenue_30d DESC, c.full_name`,
+    [run.id, brokerId]
+  );
+  // Tagesreihe = Summe der Tagesreihen aller vermittelten Creator.
+  const days = await db.many(
+    `SELECT d.day, SUM(d.orders)::int AS orders,
+            ROUND(SUM(d.revenue)::numeric, 2)::float8 AS revenue,
+            ROUND((SUM(d.revenue) * b.share_rate / 100)::numeric, 2)::float8 AS commission
+       FROM snapshot_days d
+       JOIN creators c ON c.id = d.creator_id
+       JOIN brokers b ON b.id = c.broker_id
+      WHERE d.run_id = $1 AND c.broker_id = $2
+      GROUP BY d.day, b.share_rate ORDER BY d.day`,
+    [run.id, brokerId]
+  );
+  return { run, totals, creators, days };
+}
+
 /**
  * Hat der Sicherheitslauf für diesen Slot (z. B. '10:30') heute schon
  * stattgefunden? Netlify ruft je Slot zwei Termine auf (Sommer- und
@@ -336,6 +405,7 @@ module.exports = {
   buildSnapshot,
   latestRun,
   dashboardFor,
+  brokerDashboardFor,
   hasRunToday,
   hasRunForSlot,
   needsSafetyRun,

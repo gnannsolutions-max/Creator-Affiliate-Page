@@ -5,6 +5,7 @@ const config = require('../config');
 const db = require('../db');
 
 const CREATOR_COOKIE = 'ca_session';
+const BROKER_COOKIE = 'ca_broker';
 const ADMIN_COOKIE = 'ca_admin';
 
 function hash(value) {
@@ -62,16 +63,62 @@ async function createLoginToken(creatorId) {
  * beide eine Session bekommen.
  */
 async function consumeLoginToken(token) {
+  const row = await consumeAnyLoginToken(token);
+  return row && row.creator_id ? row.creator_id : null;
+}
+
+/** Löst einen Token ein und sagt, ob er einem Creator oder Vermittler gehört. */
+async function consumeAnyLoginToken(token) {
   if (!token) return null;
   const row = await db.one(
     `UPDATE login_tokens SET used_at = now()
       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-      RETURNING creator_id`,
+      RETURNING creator_id, broker_id`,
     [hash(String(token))]
   );
   if (!row) return null;
-  await db.run('UPDATE creators SET last_login_at = now() WHERE id = $1', [row.creator_id]);
-  return row.creator_id;
+  if (row.creator_id) await db.run('UPDATE creators SET last_login_at = now() WHERE id = $1', [row.creator_id]);
+  if (row.broker_id) await db.run('UPDATE brokers SET last_login_at = now() WHERE id = $1', [row.broker_id]);
+  return row;
+}
+
+// --- Magic-Link für Vermittler ------------------------------------------------
+
+async function createBrokerLoginToken(brokerId) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expires = new Date(Date.now() + config.loginTokenTtlMinutes * 60_000);
+  await db.run('INSERT INTO login_tokens (broker_id, token_hash, expires_at) VALUES ($1, $2, $3)', [
+    brokerId,
+    hash(token),
+    expires.toISOString(),
+  ]);
+  return token;
+}
+
+function startBrokerSession(res, brokerId) {
+  const maxAge = config.sessionTtlDays * 24 * 60 * 60 * 1000;
+  res.cookie(BROKER_COOKIE, sign({ bid: String(brokerId), exp: Date.now() + maxAge }), cookieOptions(maxAge));
+}
+
+function endBrokerSession(res) {
+  res.clearCookie(BROKER_COOKIE, { path: '/' });
+}
+
+async function loadBroker(req, _res, next) {
+  try {
+    const payload = unsign(req.cookies?.[BROKER_COOKIE]);
+    if (payload?.bid) {
+      req.broker = await db.one('SELECT * FROM brokers WHERE id = $1', [payload.bid]);
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+function requireBroker(req, res, next) {
+  if (!req.broker) return res.redirect('/login');
+  next();
 }
 
 function startCreatorSession(res, creatorId) {
@@ -197,6 +244,12 @@ function requireRole(...roles) {
 }
 
 module.exports = {
+  consumeAnyLoginToken,
+  createBrokerLoginToken,
+  startBrokerSession,
+  endBrokerSession,
+  loadBroker,
+  requireBroker,
   createLoginToken,
   consumeLoginToken,
   startCreatorSession,

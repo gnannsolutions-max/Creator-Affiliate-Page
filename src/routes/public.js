@@ -137,6 +137,19 @@ router.post('/bewerben', async (req, res) => {
     .linkFromSource(values.source, creator.id)
     .catch((err) => console.error('Lead nicht verknüpfbar:', err.message));
 
+  // Kam die Bewerbung über den Link eines Vermittlers (?src=vermittler-7),
+  // hängt der Creator ab jetzt an ihm. Nur aktive Vermittler zählen.
+  const viaBroker = /^vermittler-(\d+)$/.exec(String(values.source || '').trim());
+  if (viaBroker) {
+    await db
+      .run(
+        `UPDATE creators SET broker_id = b.id FROM brokers b
+          WHERE creators.id = $1 AND b.id = $2 AND b.status = 'active'`,
+        [creator.id, Number(viaBroker[1])]
+      )
+      .catch((err) => console.error('Vermittler nicht verknüpfbar:', err.message));
+  }
+
   const mail = mailer.templates.applicationReceived(creator);
   await mailer
     .send({ to: creator.email, ...mail })
@@ -166,6 +179,7 @@ router.post('/bewerben', async (req, res) => {
 // --- Login -------------------------------------------------------------------
 
 router.get('/login', (req, res) => {
+  if (req.broker) return res.redirect('/vermittler');
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
   res.render('login', { title: 'Login', nav: 'login', sent: false, error: null, hasSmtp: mailer.hasSmtp() });
 });
@@ -194,6 +208,7 @@ router.post('/login', async (req, res) => {
   }
 
   const creator = await db.one('SELECT * FROM creators WHERE email_norm = $1', [email]);
+  const broker = creator ? null : await db.one('SELECT * FROM brokers WHERE email_norm = $1', [email]);
 
   // Bewusst immer dieselbe Rückmeldung – sonst verrät das Formular,
   // welche Adressen im System sind.
@@ -202,6 +217,12 @@ router.post('/login', async (req, res) => {
     const mail = mailer.templates.loginLink(creator, `${config.baseUrl}/login/${token}`);
     await mailer
       .send({ to: creator.email, ...mail })
+      .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
+  } else if (broker) {
+    const token = await auth.createBrokerLoginToken(broker.id);
+    const mail = mailer.templates.loginLink(broker, `${config.baseUrl}/login/${token}`);
+    await mailer
+      .send({ to: broker.email, ...mail })
       .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
   }
 
@@ -215,7 +236,12 @@ router.post('/login', async (req, res) => {
 });
 
 router.get('/login/:token', async (req, res) => {
-  const creatorId = await auth.consumeLoginToken(req.params.token);
+  const hit = await auth.consumeAnyLoginToken(req.params.token);
+  if (hit && hit.broker_id) {
+    auth.startBrokerSession(res, hit.broker_id);
+    return res.redirect('/vermittler');
+  }
+  const creatorId = hit ? hit.creator_id : null;
   if (!creatorId) {
     return res.status(400).render('login', {
       title: 'Login',
@@ -232,6 +258,7 @@ router.get('/login/:token', async (req, res) => {
 
 router.get('/logout', (req, res) => {
   auth.endCreatorSession(res);
+  auth.endBrokerSession(res);
   res.redirect('/login');
 });
 

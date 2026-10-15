@@ -1,0 +1,148 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Vermittler</h1>
+    <p>Vermittler bringen Creator ins Programm und werden am Umsatz ihrer Creator beteiligt. Jeder hat ein eigenes Dashboard und einen eigenen Bewerbungslink.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <% if (loginLink) { %>
+  <div class="card">
+    <h2>Login-Link für <%= editing.full_name.split(' ')[0] %></h2>
+    <p class="small muted">Das Portal verschickt diesen Link nicht – gib ihn über euren eigenen Kanal weiter. Er ist 30 Minuten gültig und einmal nutzbar. Danach meldet sich der Vermittler jederzeit über <%= baseUrl %>/login mit seiner E-Mail-Adresse an.</p>
+    <div class="code-display">
+      <div style="min-width:0;flex:1"><div class="mono" style="word-break:break-all;font-size:13px"><%= loginLink %></div></div>
+      <button class="btn btn--sm" type="button" data-copy="<%= loginLink %>">Link kopieren</button>
+    </div>
+  </div>
+  <% } %>
+
+  <% if (editing) { %>
+  <div class="card">
+    <h2>Bewerbungslink von <%= editing.full_name %></h2>
+    <p class="small muted">Diesen Link gibt der Vermittler an seine Creator. Wer sich darüber bewirbt, wird ihm automatisch zugeordnet.</p>
+    <div class="code-display">
+      <div style="min-width:0;flex:1"><div class="mono" style="word-break:break-all;font-size:13px"><%= baseUrl %>/bewerben?src=vermittler-<%= editing.id %></div></div>
+      <button class="btn btn--sm" type="button" data-copy="<%= baseUrl %>/bewerben?src=vermittler-<%= editing.id %>">Link kopieren</button>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <form method="post" action="/admin/brokers/<%= editing.id %>/login-link">
+        <button class="btn btn--ghost btn--sm" type="submit">Login-Link erzeugen</button>
+      </form>
+      <a class="btn btn--ghost btn--sm" href="/admin/brokers">Neuen Vermittler anlegen</a>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= editing ? 'Vermittler bearbeiten' : 'Neuen Vermittler anlegen' %></h2>
+    <form method="post" action="/admin/brokers">
+      <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+      <div class="field">
+        <label for="full_name">Name</label>
+        <input type="text" id="full_name" name="full_name" required value="<%= values.full_name || '' %>" <%= errors.full_name ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.full_name) { %><p class="field-error"><%= errors.full_name %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="email">E-Mail-Adresse</label>
+        <p class="hint">Damit meldet sich der Vermittler an seinem Dashboard an.</p>
+        <input type="email" id="email" name="email" required value="<%= values.email || '' %>" <%= errors.email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.email) { %><p class="field-error"><%= errors.email %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="share_rate">Beteiligung in %</label>
+        <p class="hint">Anteil am Umsatz aller Creator dieses Vermittlers – unabhängig von der Provision der Creator.</p>
+        <input type="number" id="share_rate" name="share_rate" min="0" max="100" step="0.5" required value="<%= values.share_rate !== undefined ? values.share_rate : 5 %>" <%= errors.share_rate ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.share_rate) { %><p class="field-error"><%= errors.share_rate %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="active" <%= values.status === 'paused' ? '' : 'selected' %>>Aktiv</option>
+          <option value="paused" <%= values.status === 'paused' ? 'selected' : '' %>>Pausiert – Bewerbungslink ordnet nicht mehr zu</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="note">Interne Notiz <span class="optional">– sieht der Vermittler nicht</span></label>
+        <textarea id="note" name="note"><%= values.note || '' %></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit"><%= editing ? 'Speichern' : 'Vermittler anlegen' %></button>
+        <% if (editing) { %><a class="btn btn--ghost" href="/admin/brokers">Abbrechen</a><% } %>
+      </div>
+    </form>
+  </div>
+
+  <% if (editing) { %>
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Zugeordnete Creator</h2>
+      <span class="sub"><%= editingCreators.length %></span>
+    </div>
+    <% if (!editingCreators.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Creator. Entweder bewirbt sich jemand über den Bewerbungslink, oder du ordnest einen Creator auf seiner Seite unter „Status und Notiz → Vermittler“ zu.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Creator</th><th>Kennung</th><th>Instagram</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <% editingCreators.forEach(function (c) { %>
+          <tr>
+            <td><%= c.full_name %></td>
+            <td class="mono small"><%= c.requested_code %></td>
+            <td class="small">@<%= c.instagram %></td>
+            <td><span class="badge badge--<%= c.status === 'approved' ? 'good' : (c.status === 'pending' ? 'warn' : 'neutral') %>"><%= statusLabel(c.status) %></span></td>
+            <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/creators/<%= c.id %>">Öffnen</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+  <% } %>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Alle Vermittler</h2></div>
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Noch kein Vermittler angelegt.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>E-Mail</th><th class="num">Beteiligung</th><th class="num">Creator</th><th class="num">Umsatz 30 Tage</th><th class="num">Beteiligung 30 Tage</th><th class="num">Beteiligung gesamt</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (b) { %>
+          <tr>
+            <td><%= b.full_name %></td>
+            <td class="small"><%= b.email %></td>
+            <td class="num"><%= percent(b.share_rate) %></td>
+            <td class="num"><%= num(b.creators_count) %></td>
+            <td class="num"><%= money(b.revenue_30d || 0) %></td>
+            <td class="num"><%= money(b.share_30d || 0) %></td>
+            <td class="num"><%= money(b.share_total || 0) %></td>
+            <td><span class="badge badge--<%= b.status === 'active' ? 'good' : 'neutral' %>"><%= b.status === 'active' ? 'Aktiv' : 'Pausiert' %></span></td>
+            <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/brokers/<%= b.id %>">Bearbeiten</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('../partials/foot') %>

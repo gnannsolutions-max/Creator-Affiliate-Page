@@ -34,6 +34,22 @@ test('Kennung A12 / Agent12 in utm_campaign wird erkannt, Creator in utm_source 
   assert.strictEqual(onlyAgent.row.agent_code, 'A3', 'Kennung wird trotzdem gemerkt');
 });
 
+test('Kennungen werden auch in anderen utm-Feldern und in der Einstiegs-URL gefunden', () => {
+  const lk = { byCode: new Map([['CREATOR1', { creator_id: 1, commission_rate: 15 }]]), byName: new Map(), byHandle: new Map(), byAgent: new Map([['A1', { id: 9, commission_rate: 20 }]]) };
+  const base = { id: 1, status: 'completed', date_created: '2026-10-14T10:00:00', total: '100', total_tax: '0', shipping_total: '0', coupon_lines: [], meta_data: [] };
+  // A1 im utm_source statt utm_campaign
+  const srcOnly = mapOrder({ ...base, meta_data: [{ key: '_wc_order_attribution_utm_source', value: 'A1' }] }, lk, {});
+  assert.strictEqual(srcOnly.row.agent_id, 9);
+  // beides nur in der Einstiegs-URL (kein utm-Feld befüllt)
+  const entry = mapOrder({ ...base, meta_data: [{ key: '_wc_order_attribution_session_entry', value: 'https://shop.test/produkt/?ref=Creator1&agent=A1#top' }] }, lk, {});
+  assert.strictEqual(entry.row.creator_id, 1);
+  assert.strictEqual(entry.row.agent_id, 9);
+  // utm_medium=social darf nichts auslösen
+  const none = mapOrder({ ...base, meta_data: [{ key: '_wc_order_attribution_utm_medium', value: 'social' }, { key: '_wc_order_attribution_source_type', value: 'typein' }] }, lk, {});
+  assert.strictEqual(none.row.creator_id, null);
+  assert.strictEqual(none.row.agent_code, null);
+});
+
 test.before(async () => {
   try {
     await db.migrate();

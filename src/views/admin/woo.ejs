@@ -75,7 +75,8 @@
     <div class="card">
       <h2>So werden Creator erkannt</h2>
       <ol class="small">
-        <li><strong>Creator-Kennung im Link</strong>: Der Creator postet die Shop-Adresse mit <span class="mono">?utm_source=Creator12</span>. WooCommerce speichert das an der Bestellung; die Kennung ist der Code des Creators im Portal. Provisionssatz vom Code.</li>
+        <li><strong>Creator-Kennung im Link</strong>: Der Creator postet die Shop-Adresse mit <span class="mono">?utm_source=Creator12</span>. WooCommerce speichert die Link-Daten an der Bestellung; das Portal sucht die Kennung in allen utm-Feldern und in der Einstiegs-URL. Die Kennung ist der Code des Creators im Portal. Provisionssatz vom Code.</li>
+        <li><strong>Agentenkennung im Link</strong>: <span class="mono">A1</span>, <span class="mono">A2</span>, … – empfohlen als <span class="mono">utm_campaign=A1</span>, wird aber in jedem utm-Feld und in der Einstiegs-URL erkannt. Zählt zusätzlich zum Creator.</li>
         <li><strong>Gutscheincode</strong> der Bestellung = Code eines Creators im Portal. Provisionssatz vom Code.</li>
         <li><strong>Zusatzfeld</strong> an der Bestellung: <% if (settings.creatorMeta) { %><span class="mono"><%= settings.creatorMeta %></span> – Wert wird als Creatorname oder Instagram-Handle verstanden.<% } else { %><em>nicht gesetzt</em> – in Netlify <span class="mono">WOO_CREATOR_META</span> auf den Feldnamen setzen, sobald bekannt (siehe Beispielbestellung unten).<% } %></li>
         <li><strong>Prozentsatz je Bestellung</strong>: <% if (settings.rateMeta) { %><span class="mono"><%= settings.rateMeta %></span><% } else { %><em>nicht gesetzt</em> – optional <span class="mono">WOO_RATE_META</span>; sonst gilt der Satz des Codes bzw. des Creators.<% } %></li>
@@ -90,7 +91,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>#</th><th>Datum</th><th>Status</th><th class="num">Gesamt</th><th>Gutschein</th><th>Herkunft (Creator)</th><th>Kampagne (Agent)</th><th>Kundenhinweis</th><th>Sonstige Felder</th></tr></thead>
+          <thead><tr><th>#</th><th>Datum</th><th>Status</th><th class="num">Gesamt</th><th>Gutschein</th><th>Erkannt</th><th>Link-Daten aus dem Shop</th><th>Kundenhinweis</th><th>Sonstige Felder</th></tr></thead>
           <tbody>
             <% orders.slice().reverse().forEach(function (o) { %>
             <tr>
@@ -99,8 +100,12 @@
               <td class="small"><%= o.status %></td>
               <td class="num small"><%= o.total %> <%= o.currency %></td>
               <td class="small mono"><%= o.coupons || '–' %></td>
-              <td class="small"><%= o.source || '–' %></td>
-              <td class="small mono"><%= o.campaign || '–' %></td>
+              <td class="small">
+                <% if (o.creatorFound) { %><span class="badge badge--good">Creator <%= o.creatorFound %></span><% } %>
+                <% if (o.agentFound) { %><span class="badge badge--good">Agent <%= o.agentFound %></span><% } %>
+                <% if (!o.creatorFound && !o.agentFound) { %><span class="muted">keine Kennung</span><% } %>
+              </td>
+              <td class="small mono" style="max-width:320px;word-break:break-all"><%= o.linkData || (o.sourceType ? '(' + o.sourceType + ', keine Parameter)' : '– keine Link-Daten gespeichert –') %></td>
               <td class="small"><%= o.note || '–' %></td>
               <td class="small mono"><%= o.extra || '–' %></td>
             </tr>

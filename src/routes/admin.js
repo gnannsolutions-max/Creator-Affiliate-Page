@@ -17,7 +17,7 @@ const { barChart, rankBars } = require('../lib/chart');
 const { money, num } = require('../lib/format');
 const shopDb = require('../lib/shopDb');
 const woo = require('../lib/woo');
-const { syncWooOrders, normalizeAgentCode } = require('../services/syncWoo');
+const { syncWooOrders, normalizeAgentCode, attributionValues } = require('../services/syncWoo');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays, nextRefreshLabel } = require('../lib/dates');
 
@@ -975,6 +975,10 @@ async function renderWoo(req, res, extra = {}) {
         items: (o.line_items || []).map((l) => `${l.quantity}× ${l.name}`).join(', '),
         source: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_utm_source')?.value || '',
         campaign: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_utm_campaign')?.value || '',
+        linkData: attributionValues(o).map((a) => `${a.key}=${a.value}`).join(' · '),
+        sourceType: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_source_type')?.value || '',
+        creatorFound: (attributionValues(o).map((a) => a.value.toUpperCase().replace(/[^A-Z0-9]/g, '')).find((v) => /^CREATOR[0-9]+$/.test(v))) || null,
+        agentFound: attributionValues(o).map((a) => normalizeAgentCode(a.value)).find(Boolean) || null,
         note: o.customer_note || '',
         extra: (o.meta_data || [])
           .filter((m) => !/^_wc_order_attribution|^_ziina|^_googlesitekit|^is_vat_exempt/.test(m.key))

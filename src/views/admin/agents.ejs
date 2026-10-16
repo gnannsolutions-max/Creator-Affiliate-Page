@@ -3,7 +3,7 @@
 <main class="wrap">
   <div class="page-head">
     <h1>Agenten</h1>
-    <p>Agenten verkaufen das Produkt selbst. Ihre Kennung (A1, A2, …) steckt als <span class="mono">utm_campaign</span> im Shop-Link; jede Bestellung damit zählt für sie – zusätzlich zum Creator, falls einer dranhängt. Interessenten bewerben sich unter <span class="mono"><%= baseUrl %>/agent-werden</span> mit der Kennung, die ihr ihnen gegeben habt.</p>
+    <p>Agenten verkaufen das Produkt selbst. Ihre Kennung (A1, A2, …) steckt im Shop-Link – am besten als <span class="mono">utm_campaign=A1</span>, erkannt wird sie in jedem utm-Feld; jede Bestellung damit zählt für sie – zusätzlich zum Creator, falls einer dranhängt. Interessenten bewerben sich unter <span class="mono"><%= baseUrl %>/agent-werden</span> mit der Kennung, die ihr ihnen gegeben habt.</p>
   </div>
 
   <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>

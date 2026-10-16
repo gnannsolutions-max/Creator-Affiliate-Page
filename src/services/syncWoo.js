@@ -43,6 +43,50 @@ function metaValue(order, key) {
   return null;
 }
 
+/**
+ * Alle Link-Werte, die WooCommerce an der Bestellung speichert: die utm_*-Felder
+ * und die Einstiegs-URL der Sitzung (inkl. ihrer Parameter). Darin wird nach
+ * Creator- und Agentenkennung gesucht – egal in welchem Parameter sie stand.
+ */
+function attributionValues(order) {
+  const out = [];
+  for (const m of order.meta_data || []) {
+    const key = String(m.key || '').toLowerCase();
+    if (!key.startsWith('_wc_order_attribution_')) continue;
+    const v = m.value === null || m.value === undefined ? '' : String(m.value).trim();
+    if (!v) continue;
+    if (/_utm_(source|medium|campaign|content|term)$/.test(key)) out.push({ key: key.replace('_wc_order_attribution_', ''), value: v });
+    if (/_session_entry$|_referrer$/.test(key)) {
+      const q = v.split('?')[1];
+      if (!q) continue;
+      for (const part of q.split('#')[0].split('&')) {
+        const [k, val] = part.split('=');
+        if (!val) continue;
+        let dec = val;
+        try { dec = decodeURIComponent(val.replace(/\+/g, ' ')); } catch (e) { /* lassen */ }
+        out.push({ key: `url:${k}`, value: dec.trim() });
+      }
+    }
+  }
+  return out;
+}
+
+function findCreatorIdInAttribution(order) {
+  for (const a of attributionValues(order)) {
+    const norm = a.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (/^CREATOR[0-9]+$/.test(norm)) return { raw: a.value, norm };
+  }
+  return null;
+}
+
+function findAgentCodeInAttribution(order) {
+  for (const a of attributionValues(order)) {
+    const norm = normalizeAgentCode(a.value);
+    if (norm) return norm;
+  }
+  return null;
+}
+
 function orderNet(order) {
   const total = Number(order.total || 0);
   const tax = Number(order.total_tax || 0);
@@ -151,11 +195,11 @@ function mapOrder(order, lk, opts) {
   // sie automatisch als _wc_order_attribution_utm_source an die Bestellung.
   // Die Kennung ist zugleich der Code des Creators im Portal.
   if (!creatorId) {
-    const utm = metaValue(order, '_wc_order_attribution_utm_source') || metaValue(order, '_wc_order_attribution_utm_campaign');
-    const norm = String(utm || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (/^CREATOR[0-9]+$/.test(norm)) {
+    const found = findCreatorIdInAttribution(order);
+    if (found) {
+      const norm = found.norm;
       const hit = lk.byCode.get(norm);
-      creatorName = utm;
+      creatorName = found.raw;
       if (hit) {
         creatorId = hit.creator_id;
         rate = hit.commission_rate;
@@ -191,8 +235,7 @@ function mapOrder(order, lk, opts) {
   // Creator – beide können an derselben Bestellung hängen.
   let agentCode = null;
   let agentId = null;
-  const camp = metaValue(order, '_wc_order_attribution_utm_campaign');
-  const agentNorm = normalizeAgentCode(camp);
+  const agentNorm = findAgentCodeInAttribution(order);
   if (agentNorm) {
     agentCode = agentNorm;
     const hit = lk.byAgent && lk.byAgent.get(agentNorm);
@@ -334,4 +377,4 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
   };
 }
 
-module.exports = { syncWooOrders, mapOrder, orderNet, mapStatus, normalizeAgentCode };
+module.exports = { syncWooOrders, mapOrder, orderNet, mapStatus, normalizeAgentCode, attributionValues };

@@ -557,3 +557,34 @@ textarea { min-height: 80px; resize: vertical; }
 .inline-form { display: inline; }
 tr.is-muted td { opacity: .55; }
 tr.is-muted .badge { opacity: 1; }
+
+
+/* --- Admin-Übersicht: Ranglisten und Zweispalter --------------------------- */
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .dash-grid { grid-template-columns: 1fr; } }
+.rank { list-style: none; margin: 0; padding: 4px 0 8px; }
+.rank-row {
+  display: grid;
+  grid-template-columns: 28px minmax(150px, 2fr) minmax(80px, 1.2fr) minmax(110px, auto);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+}
+.rank-row:first-child { border-top: 0; }
+.rank-pos { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 13px; text-align: right; }
+.rank-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.rank-name a { color: inherit; text-decoration: none; }
+.rank-name a:hover { text-decoration: underline; }
+.rank-sub { color: var(--text-muted); font-weight: 400; font-size: 12px; margin-left: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rank-bar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.rank-fill { display: block; height: 100%; background: var(--series-1); border-radius: 999px; }
+.rank--agent .rank-fill { background: var(--good); }
+.rank-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.rank-sec { display: block; color: var(--text-muted); font-weight: 400; font-size: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg a { padding: 5px 12px; font-size: 13px; color: var(--text-secondary); text-decoration: none; }
+.seg a.is-active { background: var(--surface-2); color: var(--text-primary); font-weight: 600; }
+.kpi-split { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-muted); }
+.kpi-split b { color: var(--text-primary); font-weight: 600; }
+@media (max-width: 600px) { .rank-row { grid-template-columns: 24px 1fr auto; } .rank-bar { display: none; } }

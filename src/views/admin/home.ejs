@@ -1,106 +1,123 @@
 <%- include('../partials/head') %>
 
 <main class="wrap">
-  <div class="page-head">
-    <h1>Übersicht</h1>
-    <p>
-      <% if (run) { %>
-        Letzter Dashboard-Stand: <strong><%= run.as_of_label %></strong>
-        (<%= run.triggered_by === 'import' ? 'nach Upload' : run.triggered_by === 'cron' ? 'Sicherheitslauf' + (run.slot ? ' ' + run.slot : '') : 'manuell' %>) ·
-        nächster Sicherheitslauf <%= nextRefresh %>
-      <% } else { %>
-        Noch kein Snapshot erzeugt. Creator sehen bis zum ersten Lauf keine Zahlen.
-      <% } %>
-    </p>
+  <div class="page-head" style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px">
+    <div>
+      <h1>Übersicht</h1>
+      <p>
+        <% if (run) { %>
+          Stand <strong><%= run.as_of_label %></strong>
+          (<%= run.triggered_by === 'import' ? 'nach Bestellabgleich' : run.triggered_by === 'cron' ? 'Sicherheitslauf' + (run.slot ? ' ' + run.slot : '') : 'manuell' %>)
+          · nächster Sicherheitslauf <%= nextRefresh %>
+        <% } else { %>
+          Noch kein Stand erzeugt. Dashboards sind leer, bis die erste Bestellung eingeht.
+        <% } %>
+      </p>
+    </div>
+    <nav class="seg" aria-label="Zeitraum">
+      <a href="/admin" class="<%= period === '30d' ? 'is-active' : '' %>">Letzte 30 Tage</a>
+      <a href="/admin?zeitraum=gesamt" class="<%= period === 'total' ? 'is-active' : '' %>">Gesamt</a>
+    </nav>
   </div>
 
   <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
 
-  <% if (!hasSmtp && admin.role === 'owner') { %>
-    <div class="note note--warn">
-      <p><strong>Kein SMTP-Zugang hinterlegt.</strong> Das Portal verschickt keine E-Mails – es funktioniert trotzdem vollständig.</p>
-      <p>Jede Freigabe- und Login-Nachricht steht mitsamt Link unter <a href="/admin/mails">Nachrichten</a>. Kopiere den Link und schick ihn dem Creator selbst. Wenn das Portal die Mails übernehmen soll, trage <code class="mono">SMTP_HOST</code> und Zugangsdaten in den Umgebungsvariablen ein.</p>
-    </div>
-  <% } %>
-
-  <% if (akquise && Number(akquise.due) > 0) { %>
+  <% const pendingAll = Number(counts.pending) + Number(partnerCounts.agents_pending) + Number(partnerCounts.brokers_pending); %>
+  <% if (pendingAll > 0 || (akquise && Number(akquise.due) > 0)) { %>
     <div class="note note--warn">
       <p>
-        <strong><%= num(akquise.due) %> <%= Number(akquise.due) === 1 ? 'Wiedervorlage ist' : 'Wiedervorlagen sind' %> fällig.</strong>
-        <% if (Number(akquise.upcoming) > 0) { %>Dazu <%= num(akquise.upcoming) %> anstehende<%= Number(akquise.upcoming) === 1 ? 'r Termin' : ' Termine' %>.<% } %>
+        <% if (Number(counts.pending) > 0) { %><a href="/admin/creators?status=pending"><strong><%= num(counts.pending) %></strong> Creator-Bewerbung<%= Number(counts.pending) === 1 ? '' : 'en' %></a> · <% } %>
+        <% if (Number(partnerCounts.agents_pending) > 0) { %><a href="/admin/agents"><strong><%= num(partnerCounts.agents_pending) %></strong> Agenten-Bewerbung<%= Number(partnerCounts.agents_pending) === 1 ? '' : 'en' %></a> · <% } %>
+        <% if (Number(partnerCounts.brokers_pending) > 0) { %><a href="/admin/brokers"><strong><%= num(partnerCounts.brokers_pending) %></strong> Vermittler-Bewerbung<%= Number(partnerCounts.brokers_pending) === 1 ? '' : 'en' %></a> · <% } %>
+        <% if (akquise && Number(akquise.due) > 0) { %><a href="/admin/leads"><strong><%= num(akquise.due) %></strong> Wiedervorlage<%= Number(akquise.due) === 1 ? '' : 'n' %> fällig</a><% } %>
       </p>
-      <p><a class="btn btn--sm" href="/admin/leads">Zur Akquise</a></p>
     </div>
   <% } %>
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-label">In Akquise</div>
-      <div class="stat-value"><%= num(akquise ? akquise.open : 0) %></div>
-      <div class="stat-sub">
-        <% if (akquise && Number(akquise.due) > 0) { %><%= num(akquise.due) %> fällig · <% } %><a href="/admin/leads">Ansehen</a>
+      <div class="stat-label">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %></div>
+      <div class="stat-value"><%= money(kpi.revenue) %></div>
+      <% if (period === '30d') { const d = delta(kpi.revenue, kpi.revenuePrev); %>
+        <div class="stat-delta <%= d.direction %>"><%= d.text %> vs. 30 Tage davor</div>
+      <% } else { %>
+        <div class="stat-sub">bereinigter Nettoumsatz</div>
+      <% } %>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Bestellungen</div>
+      <div class="stat-value"><%= num(kpi.orders) %></div>
+      <div class="stat-sub"><%= kpi.orders ? 'Ø ' + money(kpi.revenue / kpi.orders) : '–' %></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Auszuschütten <%= period === 'total' ? 'gesamt' : '30 Tage' %></div>
+      <div class="stat-value"><%= money(kpi.creatorCommission + kpi.agentCommission + kpi.brokerShare) %></div>
+      <div class="kpi-split">
+        <span>Creator <b><%= money(kpi.creatorCommission) %></b></span>
+        <span>Agenten <b><%= money(kpi.agentCommission) %></b></span>
+        <span>Vermittler <b><%= money(kpi.brokerShare) %></b></span>
       </div>
     </div>
     <div class="stat">
-      <div class="stat-label">Offene Bewerbungen</div>
-      <div class="stat-value"><%= num(counts.pending) %></div>
-      <div class="stat-sub"><a href="/admin/creators?status=pending">Ansehen</a></div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Aktive Creator</div>
-      <div class="stat-value"><%= num(counts.approved) %></div>
-      <div class="stat-sub"><%= num(counts.paused) %> pausiert</div>
-    </div>
-    <% if (admin.role === 'owner') { %>
-    <div class="stat">
-      <div class="stat-label">Umsatz 30 Tage</div>
-      <div class="stat-value"><%= money(totals.revenue30) %></div>
-      <div class="stat-sub"><%= num(totals.orders30) %> Bestellungen</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Offene Provisionen</div>
-      <div class="stat-value"><%= money(totals.commissionOpen) %></div>
-      <div class="stat-sub"><a href="/admin/payouts">Auszahlungen</a></div>
-    </div>
-    <% } %>
-  </div>
-
-  <div class="card">
-    <div class="actions">
-      <form method="post" action="/admin/refresh">
-        <button class="btn" type="submit">Dashboard jetzt aktualisieren</button>
-      </form>
-      <% if (admin.role === 'owner') { %><a class="btn btn--ghost" href="/admin/import">Umsatz-CSV hochladen</a><% } %>
-      <span class="small muted">Die Dashboards werden nach jedem Upload neu berechnet; Sicherheitsläufe um <%= refreshTime %> (<%= timezone %>) greifen nur, wenn ein Upload ohne Aktualisierung geblieben ist.</span>
+      <div class="stat-label">Aktive Partner</div>
+      <div class="stat-value"><%= num(Number(counts.approved) + Number(partnerCounts.agents_active) + Number(partnerCounts.brokers_active)) %></div>
+      <div class="kpi-split">
+        <span>Creator <b><%= num(counts.approved) %></b></span>
+        <span>Agenten <b><%= num(partnerCounts.agents_active) %></b></span>
+        <span>Vermittler <b><%= num(partnerCounts.brokers_active) %></b></span>
+      </div>
     </div>
   </div>
 
   <div class="card card--flush">
     <div class="card-head">
-      <h2>Top-Creator nach Umsatz (30 Tage)</h2>
-      <span class="sub">Stand des letzten Snapshots</span>
+      <h2>Umsatz der letzten 30 Tage</h2>
+      <span class="sub">Alle Bestellungen · nur bestätigte · Stornos und Erstattungen fallen heraus</span>
     </div>
-    <% if (!top.length) { %>
-      <div class="card-body"><p class="empty">Noch keine Umsätze im Snapshot.</p></div>
-    <% } else { %>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>Creator</th><th>Marken</th><th class="num">Bestellungen</th><th class="num">Umsatz</th><th class="num">Provision</th></tr></thead>
-        <tbody>
-          <% top.forEach(function (t) { %>
-          <tr>
-            <td><a href="/admin/creators/<%= t.id %>"><%= t.full_name %></a></td>
-            <td class="small"><%= num(t.brand_count) %> Marke<%= Number(t.brand_count) === 1 ? '' : 'n' %></td>
-            <td class="num"><%= num(t.orders_30d) %></td>
-            <td class="num"><%= money(t.revenue_30d) %></td>
-            <td class="num"><%= money(t.commission_30d) %></td>
-          </tr>
-          <% }); %>
-        </tbody>
-      </table>
-    </div>
-    <% } %>
+    <div class="card-body"><%- chartHtml || '<p class="empty">Noch keine Bestellungen.</p>' %></div>
   </div>
+
+  <div class="dash-grid">
+    <div class="card card--flush">
+      <div class="card-head">
+        <h2>Creator</h2>
+        <span class="sub">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
+      </div>
+      <%- creatorRank %>
+    </div>
+    <div class="card card--flush rank--agent">
+      <div class="card-head">
+        <h2>Agenten</h2>
+        <span class="sub">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
+      </div>
+      <%- agentRank %>
+    </div>
+  </div>
+
+  <% if (admin.role === 'owner') { %>
+  <div class="card card--flush" style="margin-top:16px">
+    <div class="card-head">
+      <h2>Vermittler</h2>
+      <span class="sub">Umsatz ihrer Creator <%= period === 'total' ? 'gesamt' : '30 Tage' %></span>
+    </div>
+    <%- brokerRank %>
+  </div>
+  <% } %>
+
+  <div class="card" style="margin-top:16px">
+    <div class="actions">
+      <form method="post" action="/admin/refresh"><button class="btn btn--ghost btn--sm" type="submit">Stand jetzt neu berechnen</button></form>
+      <% if (admin.role === 'owner') { %>
+        <a class="btn btn--ghost btn--sm" href="/admin/woo">WooCommerce</a>
+        <a class="btn btn--ghost btn--sm" href="/admin/payouts">Auszahlungen<%= kpi.commissionOpen ? ' · ' + money(kpi.commissionOpen) + ' offen' : '' %></a>
+      <% } %>
+      <span class="small muted">Zahlen kommen live aus dem Shop; Sicherheitsläufe um <%= refreshTime %> (<%= timezone %>).</span>
+    </div>
+  </div>
+
+  <% if (!hasSmtp && admin.role === 'owner') { %>
+    <p class="small muted" style="margin-top:12px">Kein SMTP-Zugang hinterlegt – Login-Links stehen unter <a href="/admin/mails">Nachrichten</a>.</p>
+  <% } %>
 </main>
 
 <%- include('../partials/foot') %>

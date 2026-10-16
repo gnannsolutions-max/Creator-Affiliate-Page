@@ -13,6 +13,8 @@ const brandsLib = require('../lib/brands');
 const leadsLib = require('../lib/leads');
 const adminUsers = require('../lib/adminUsers');
 const { importAnyCsv } = require('../services/importSales');
+const { barChart, rankBars } = require('../lib/chart');
+const { money, num } = require('../lib/format');
 const shopDb = require('../lib/shopDb');
 const woo = require('../lib/woo');
 const { syncWooOrders, normalizeAgentCode } = require('../services/syncWoo');
@@ -110,6 +112,8 @@ const actor = (req) => (req.admin && req.admin.name) || config.adminName;
 
 router.get('/', async (req, res) => {
   const run = await latestRun();
+  const period = req.query.zeitraum === 'gesamt' ? 'total' : '30d';
+  const col = (base) => (period === 'total' ? `${base}_total` : `${base}_30d`);
 
   const counts = await db.one(
     `SELECT
@@ -118,37 +122,98 @@ router.get('/', async (req, res) => {
        COUNT(*) FILTER (WHERE status = 'paused')   AS paused
      FROM creators`
   );
+  const partnerCounts = await db.one(
+    `SELECT
+       (SELECT COUNT(*) FROM agents  WHERE status = 'active')  AS agents_active,
+       (SELECT COUNT(*) FROM agents  WHERE status = 'pending') AS agents_pending,
+       (SELECT COUNT(*) FROM brokers WHERE status = 'active')  AS brokers_active,
+       (SELECT COUNT(*) FROM brokers WHERE status = 'pending') AS brokers_pending`
+  );
 
-  let totals = { revenue30: 0, orders30: 0, commissionOpen: 0 };
-  let top = [];
+  let kpi = { revenue: 0, orders: 0, creatorCommission: 0, agentCommission: 0, brokerShare: 0, commissionOpen: 0, revenuePrev: 0 };
+  let days = [];
+  let creators = [];
+  let agents = [];
+  let brokers = [];
   if (run) {
-    totals = await db.one(
-      `SELECT COALESCE(SUM(revenue_30d), 0)     AS "revenue30",
-              COALESCE(SUM(orders_30d), 0)      AS "orders30",
-              COALESCE(SUM(commission_open), 0) AS "commissionOpen"
-         FROM snapshot_totals WHERE run_id = $1`,
-      [run.id]
+    // Umsatz der Firma = alle bestätigten Bestellungen im Snapshot, egal ob
+    // Creator, Agent oder beide dranhängen. Aus den Rohdaten, damit nichts
+    // doppelt zählt.
+    const win = period === 'total' ? '' : `AND s.order_date >= $2`;
+    const from30 = addDays(localDate(), -29);
+    const base = await db.one(
+      `SELECT COUNT(*)::int AS orders,
+              COALESCE(SUM(GREATEST(s.net_amount - $1, 0)), 0) AS revenue
+         FROM sales s WHERE s.status = 'confirmed' ${win}`,
+      period === 'total' ? [config.program.commissionDeduction] : [config.program.commissionDeduction, from30]
     );
-    top = await db.many(
-      `SELECT c.id, c.full_name, t.orders_30d, t.revenue_30d, t.commission_30d,
-              (SELECT COUNT(*) FROM creator_codes cc WHERE cc.creator_id = c.id) AS brand_count
+    const prev = period === 'total' ? { revenue: 0 } : await db.one(
+      `SELECT COALESCE(SUM(GREATEST(s.net_amount - $1, 0)), 0) AS revenue
+         FROM sales s WHERE s.status = 'confirmed' AND s.order_date >= $2 AND s.order_date < $3`,
+      [config.program.commissionDeduction, addDays(localDate(), -59), from30]
+    );
+    const c = await db.one(
+      `SELECT COALESCE(SUM(${col('commission')}), 0) AS commission, COALESCE(SUM(commission_open), 0) AS open
+         FROM snapshot_totals WHERE run_id = $1`, [run.id]);
+    const a = await db.one(`SELECT COALESCE(SUM(${col('commission')}), 0) AS commission FROM snapshot_agent_totals WHERE run_id = $1`, [run.id]);
+    const b = await db.one(`SELECT COALESCE(SUM(${col('share')}), 0) AS share FROM snapshot_broker_totals WHERE run_id = $1`, [run.id]);
+    kpi = {
+      revenue: Number(base.revenue), orders: base.orders, revenuePrev: Number(prev.revenue),
+      creatorCommission: Number(c.commission), agentCommission: Number(a.commission), brokerShare: Number(b.share),
+      commissionOpen: Number(c.open),
+    };
+
+    days = await db.many(
+      `SELECT to_char(gs, 'YYYY-MM-DD') AS day,
+              COALESCE(x.orders, 0)::int AS orders,
+              ROUND(COALESCE(x.revenue, 0)::numeric, 2)::float8 AS revenue
+         FROM generate_series($2::date, $3::date, interval '1 day') gs
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) AS orders, SUM(GREATEST(s.net_amount - $1, 0)) AS revenue
+             FROM sales s WHERE s.status = 'confirmed' AND s.order_date = to_char(gs, 'YYYY-MM-DD')) x ON TRUE
+        ORDER BY gs`,
+      [config.program.commissionDeduction, from30, localDate()]
+    );
+
+    creators = await db.many(
+      `SELECT c.id, c.full_name, c.requested_code, t.${col('orders')} AS orders, t.${col('revenue')} AS revenue, t.${col('commission')} AS commission
          FROM snapshot_totals t JOIN creators c ON c.id = t.creator_id
-        WHERE t.run_id = $1 AND t.revenue_30d > 0
-        ORDER BY t.revenue_30d DESC LIMIT 10`,
-      [run.id]
-    );
+        WHERE t.run_id = $1 AND t.${col('revenue')} > 0 ORDER BY t.${col('revenue')} DESC LIMIT 15`, [run.id]);
+    agents = await db.many(
+      `SELECT a.id, a.full_name, a.agent_code, t.${col('orders')} AS orders, t.${col('revenue')} AS revenue, t.${col('commission')} AS commission
+         FROM snapshot_agent_totals t JOIN agents a ON a.id = t.agent_id
+        WHERE t.run_id = $1 AND t.${col('revenue')} > 0 ORDER BY t.${col('revenue')} DESC LIMIT 15`, [run.id]);
+    brokers = await db.many(
+      `SELECT b.id, b.full_name, t.creators_count, t.${col('orders')} AS orders, t.${col('revenue')} AS revenue, t.${col('share')} AS share
+         FROM snapshot_broker_totals t JOIN brokers b ON b.id = t.broker_id
+        WHERE t.run_id = $1 AND t.${col('revenue')} > 0 ORDER BY t.${col('revenue')} DESC LIMIT 15`, [run.id]);
   }
 
   const akquise = await leadsLib.summary().catch(() => null);
+  const isOwner = req.admin && req.admin.role === 'owner';
 
   res.render('admin/home', {
     title: 'Übersicht',
     nav: 'admin-home',
     run,
+    period,
     counts,
+    partnerCounts,
     akquise,
-    totals,
-    top,
+    kpi,
+    chartHtml: days.length ? barChart(days, { height: 200 }) : '',
+    creatorRank: rankBars(
+      creators.map((c) => ({ label: c.full_name, sub: c.requested_code, value: c.revenue, secondary: `${num(c.orders)} Best. · ${money(c.commission)} Prov.`, href: `/admin/creators/${c.id}` })),
+      { emptyText: 'Noch keine Creator-Umsätze.' }
+    ),
+    agentRank: rankBars(
+      agents.map((a) => ({ label: a.full_name, sub: a.agent_code, value: a.revenue, secondary: `${num(a.orders)} Best. · ${money(a.commission)} Prov.`, href: isOwner ? `/admin/agents/${a.id}` : null })),
+      { emptyText: 'Noch keine Agenten-Umsätze.' }
+    ),
+    brokerRank: rankBars(
+      brokers.map((b) => ({ label: b.full_name, sub: `${num(b.creators_count)} Creator`, value: b.revenue, secondary: `${money(b.share)} Beteiligung`, href: isOwner ? `/admin/brokers/${b.id}` : null })),
+      { emptyText: 'Noch keine Vermittler-Umsätze.' }
+    ),
     refreshTime: config.refresh.label,
     nextRefresh: nextRefreshLabel(),
     timezone: config.refresh.timezone,

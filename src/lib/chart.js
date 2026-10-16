@@ -145,4 +145,32 @@ function escapeAttr(value) {
     .replace(/>/g, '&gt;');
 }
 
-module.exports = { barChart };
+/**
+ * Rangliste als horizontale Balken: Name links, Balken proportional zum
+ * höchsten Wert, Betrag rechts. Für „welcher Creator / Agent wie viel“.
+ * items: [{ label, sub, value, secondary, href }]
+ */
+function rankBars(items, { max: fixedMax = null, emptyText = 'Noch keine Umsätze.' } = {}) {
+  const list = (Array.isArray(items) ? items : []).filter((i) => Number(i.value) > 0);
+  if (!list.length) return `<p class="empty">${emptyText}</p>`;
+  const max = fixedMax || Math.max(...list.map((i) => Number(i.value) || 0));
+  return `<ol class="rank">${list
+    .map((i, idx) => {
+      const pct = max > 0 ? Math.max(2, (Number(i.value) / max) * 100) : 0;
+      const label = esc(i.label);
+      const name = i.href ? `<a href="${esc(i.href)}">${label}</a>` : label;
+      return `<li class="rank-row">
+  <span class="rank-pos">${idx + 1}</span>
+  <span class="rank-name">${name}${i.sub ? ` <span class="rank-sub">${esc(i.sub)}</span>` : ''}</span>
+  <span class="rank-bar"><span class="rank-fill" style="width:${pct.toFixed(1)}%"></span></span>
+  <span class="rank-val">${money(i.value)}${i.secondary !== undefined ? `<span class="rank-sec">${esc(i.secondary)}</span>` : ''}</span>
+</li>`;
+    })
+    .join('')}</ol>`;
+}
+
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+module.exports = { barChart, rankBars };

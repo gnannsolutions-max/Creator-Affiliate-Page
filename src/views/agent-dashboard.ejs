@@ -1,0 +1,85 @@
+<%- include('partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Hallo <%= agent.full_name.split(' ')[0] %></h1>
+    <p>
+      Deine Kennung: <strong class="mono"><%= agent.agent_code %></strong> ·
+      <% if (run) { %>
+        Stand: <strong><%= run.as_of_label %></strong> · wird laufend aktualisiert, sobald eine Bestellung über dich eingeht
+      <% } else { %>
+        Deine Zahlen erscheinen hier automatisch, sobald die erste Bestellung über dich eingeht.
+      <% } %>
+    </p>
+  </div>
+
+  <% if (!totals) { %>
+    <div class="note note--info">
+      <p><strong>Noch keine Zahlen.</strong> Sobald die erste Bestellung mit deiner Kennung eingeht, erscheint sie hier automatisch.</p>
+    </div>
+  <% } else { %>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Umsatz gesamt</div>
+      <div class="stat-value"><%= money(totals.revenue_total) %></div>
+      <div class="stat-sub"><%= num(totals.orders_total) %> <%= totals.orders_total === 1 ? 'Bestellung' : 'Bestellungen' %></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Provision gesamt</div>
+      <div class="stat-value"><%= money(totals.commission_total) %></div>
+      <div class="stat-sub"><%= money(totals.commission_30d) %> in den letzten 30 Tagen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Umsatz 30 Tage</div>
+      <div class="stat-value"><%= money(totals.revenue_30d) %></div>
+      <% const d = delta(totals.revenue_30d, totals.revenue_prev30d); %>
+      <div class="stat-delta <%= d.direction %>"><%= d.text %> vs. 30 Tage davor</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Ø Bestellwert</div>
+      <div class="stat-value"><%= money(totals.avg_order_value) %></div>
+      <div class="stat-sub"><% if (totals.last_sale_date) { %>letzte Bestellung <%= formatDateDe(totals.last_sale_date) %><% } else { %>–<% } %></div>
+    </div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Umsatz der letzten 30 Tage</h2>
+      <span class="sub">Nur bestätigte Bestellungen · Retouren fallen wieder heraus</span>
+    </div>
+    <div class="card-body"><%- chartHtml %></div>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head">
+      <h2>Bestellungen</h2>
+      <span class="sub"><%= num(orders.length) %> zuletzt erfasst</span>
+    </div>
+    <% if (!orders.length) { %>
+      <div class="card-body"><p class="empty">Noch keine Bestellungen erfasst.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Datum</th><th>Marke</th><th>Bestellung</th><th>Creator</th><th>Status</th><th class="num">Umsatz</th><th class="num">Deine Provision</th></tr></thead>
+        <tbody>
+          <% orders.forEach(function (o) { %>
+          <tr>
+            <td><%= formatDateDe(o.order_date) %></td>
+            <td class="small"><%= o.brand_name || '–' %></td>
+            <td class="mono"><%= o.order_ref %></td>
+            <td class="small"><%= o.creator_name || '–' %></td>
+            <td><span class="badge badge--<%= o.status === 'confirmed' ? 'good' : (o.status === 'pending' ? 'warn' : 'danger') %>"><%= statusLabel(o.status) %></span></td>
+            <td class="num"><%= money(o.revenue) %></td>
+            <td class="num"><%= o.commission ? money(o.commission) : '–' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+  <% } %>
+</main>
+
+<%- include('partials/foot') %>

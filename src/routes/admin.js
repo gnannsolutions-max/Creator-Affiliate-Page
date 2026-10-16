@@ -15,7 +15,7 @@ const adminUsers = require('../lib/adminUsers');
 const { importAnyCsv } = require('../services/importSales');
 const shopDb = require('../lib/shopDb');
 const woo = require('../lib/woo');
-const { syncWooOrders } = require('../services/syncWoo');
+const { syncWooOrders, normalizeAgentCode } = require('../services/syncWoo');
 const { buildSnapshot, latestRun } = require('../services/snapshot');
 const { localDate, monthKey, addDays, nextRefreshLabel } = require('../lib/dates');
 
@@ -101,7 +101,7 @@ router.use(auth.requireAdmin);
 // vorbehalten – Geld, Konditionen und Zugänge. Die Prüfung hängt am Pfad und
 // nicht an den Routen einzeln, damit beim Nachrüsten einer Route niemand
 // vergisst, sie abzusichern.
-router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db', '/woo', '/brokers'], auth.requireRole('owner'));
+router.use(['/brands', '/import', '/payouts', '/mails', '/team', '/shop-db', '/woo', '/brokers', '/agents'], auth.requireRole('owner'));
 
 /** Wer die Aktion ausgelöst hat – steht so im Protokoll. */
 const actor = (req) => (req.admin && req.admin.name) || config.adminName;
@@ -583,6 +583,118 @@ router.post('/brokers/:id/login-link', async (req, res) => {
   return renderBrokers(req, res, { editing: b, values: b, editingCreators, loginLink: `${config.baseUrl}/login/${token}` });
 });
 
+// --- Agenten -----------------------------------------------------------------
+
+const AGENT_LIST = `
+  SELECT a.*,
+         (SELECT COUNT(*) FROM sales s WHERE s.agent_id = a.id) AS sales_count,
+         t.revenue_total, t.commission_total, t.revenue_30d, t.commission_30d
+    FROM agents a
+    LEFT JOIN snapshot_agent_totals t
+      ON t.agent_id = a.id AND t.run_id = (SELECT id FROM snapshot_runs ORDER BY id DESC LIMIT 1)
+   ORDER BY CASE a.status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END, a.agent_code_norm`;
+
+function validateAgent(body) {
+  const values = {
+    full_name: String(body.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    email: String(body.email || '').trim().slice(0, 200),
+    agent_code: String(body.agent_code || '').trim().slice(0, 20),
+    commission_rate: Number(String(body.commission_rate || '').replace(',', '.')),
+    status: ['active', 'paused', 'rejected'].includes(body.status) ? body.status : 'active',
+    note: String(body.note || '').trim().slice(0, 2000) || null,
+  };
+  const errors = {};
+  if (values.full_name.length < 2) errors.full_name = 'Bitte einen Namen eintragen.';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) errors.email = 'Bitte eine gültige E-Mail-Adresse eintragen.';
+  values.agent_code_norm = normalizeAgentCode(values.agent_code);
+  if (!values.agent_code_norm) errors.agent_code = 'Kennung als „A“ plus Nummer, z. B. A12.';
+  if (!Number.isFinite(values.commission_rate) || values.commission_rate < 0 || values.commission_rate > 100) errors.commission_rate = 'Provision in Prozent, zwischen 0 und 100.';
+  return { values, errors };
+}
+
+/** Bestellungen, die schon mit dieser Kennung im Portal liegen, dem Agenten zuschreiben. */
+async function claimAgentSales(agentId, codeNorm) {
+  const rows = await db.many(
+    `UPDATE sales SET agent_id = $1, updated_at = now()
+      WHERE agent_id IS NULL AND agent_code = $2 RETURNING id`,
+    [agentId, codeNorm]
+  );
+  return rows.length;
+}
+
+async function renderAgents(req, res, extra = {}) {
+  return res.render('admin/agents', {
+    title: 'Agenten',
+    nav: 'admin-agents',
+    rows: await db.many(AGENT_LIST),
+    values: {},
+    errors: {},
+    editing: null,
+    baseUrl: config.baseUrl,
+    loginLink: null,
+    unclaimed: await db.many(
+      `SELECT agent_code, COUNT(*)::int AS n FROM sales WHERE agent_id IS NULL AND agent_code IS NOT NULL GROUP BY agent_code ORDER BY agent_code`
+    ),
+    flash: req.query.ok || null,
+    ...extra,
+  });
+}
+
+router.get('/agents', (req, res) => renderAgents(req, res));
+
+router.get('/agents/:id', async (req, res) => {
+  const a = await db.one('SELECT * FROM agents WHERE id = $1', [req.params.id]);
+  if (!a) return res.redirect('/admin/agents');
+  return renderAgents(req, res, { editing: a, values: a });
+});
+
+router.post('/agents', async (req, res) => {
+  const editingId = req.body.id ? Number(req.body.id) : null;
+  const { values, errors } = validateAgent(req.body);
+  const emailNorm = values.email.toLowerCase();
+  if (!errors.email && (await db.one('SELECT id FROM agents WHERE email_norm = $1 AND id <> COALESCE($2, 0)', [emailNorm, editingId]))) {
+    errors.email = 'Diese E-Mail-Adresse gehört schon einem anderen Agenten.';
+  }
+  if (!errors.agent_code && (await db.one('SELECT id FROM agents WHERE agent_code_norm = $1 AND id <> COALESCE($2, 0)', [values.agent_code_norm, editingId]))) {
+    errors.agent_code = 'Diese Kennung ist schon vergeben.';
+  }
+  if (Object.keys(errors).length) {
+    const editing = editingId ? await db.one('SELECT * FROM agents WHERE id = $1', [editingId]) : null;
+    return renderAgents(req, res, { values: { ...values, id: editingId }, errors, editing });
+  }
+  let row;
+  if (editingId) {
+    row = await db.one(
+      `UPDATE agents SET full_name = $1, email = $2, email_norm = $3, agent_code = $4, agent_code_norm = $4,
+              commission_rate = $5, status = $6, note = $7 WHERE id = $8 RETURNING *`,
+      [values.full_name, values.email, emailNorm, values.agent_code_norm, values.commission_rate, values.status, values.note, editingId]
+    );
+  } else {
+    row = await db.one(
+      `INSERT INTO agents (full_name, email, email_norm, agent_code, agent_code_norm, commission_rate, status, note)
+       VALUES ($1, $2, $3, $4, $4, $5, $6, $7) RETURNING *`,
+      [values.full_name, values.email, emailNorm, values.agent_code_norm, values.commission_rate, values.status, values.note]
+    );
+  }
+  const claimed = row.status === 'active' || row.status === 'paused' ? await claimAgentSales(row.id, row.agent_code_norm) : 0;
+  await db.log(actor(req), editingId ? 'agent.updated' : 'agent.created', row.email, `${row.full_name} (${row.agent_code}), ${row.commission_rate} %${claimed ? `, ${claimed} Bestellungen übernommen` : ''}`);
+  try {
+    await buildSnapshot({ triggeredBy: 'import' });
+  } catch (err) {
+    console.error('Snapshot nach Agenten-Änderung fehlgeschlagen:', err.message);
+  }
+  const note = (editingId ? 'Gespeichert.' : 'Agent angelegt.') + (claimed ? ` ${claimed} bereits eingegangene Bestellung(en) mit ${row.agent_code} wurden übernommen.` : '');
+  res.redirect(`/admin/agents/${row.id}?ok=${encodeURIComponent(note)}`);
+});
+
+router.post('/agents/:id/login-link', async (req, res) => {
+  const a = await db.one('SELECT * FROM agents WHERE id = $1', [req.params.id]);
+  if (!a) return res.redirect('/admin/agents');
+  const token = await auth.createAgentLoginToken(a.id);
+  await db.log(actor(req), 'agent.login_link', a.email, 'manuell erzeugt');
+  return renderAgents(req, res, { editing: a, values: a, loginLink: `${config.baseUrl}/login/${token}` });
+});
+
 // --- Marken ------------------------------------------------------------------
 
 async function renderBrands(req, res, extra = {}) {
@@ -797,6 +909,7 @@ async function renderWoo(req, res, extra = {}) {
         coupons: (o.coupon_lines || []).map((c) => c.code).join(', '),
         items: (o.line_items || []).map((l) => `${l.quantity}× ${l.name}`).join(', '),
         source: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_utm_source')?.value || '',
+        campaign: (o.meta_data || []).find((m) => m.key === '_wc_order_attribution_utm_campaign')?.value || '',
         note: o.customer_note || '',
         extra: (o.meta_data || [])
           .filter((m) => !/^_wc_order_attribution|^_ziina|^_googlesitekit|^is_vat_exempt/.test(m.key))

@@ -214,6 +214,79 @@ async function buildSnapshot({ triggeredBy = 'cron', slot = null } = {}) {
       [runId]
     );
 
+    // --- Agenten: alle Bestellungen mit ihrer Kennung --------------------------
+    //  Unabhängig vom Creator. Umsatz = bereinigter Nettobetrag (wie beim
+    //  Creator), Provision = Satz des Agenten darauf.
+    await t.run(
+      `WITH ae AS (
+         SELECT s.agent_id, s.brand_id, s.id AS sale_id, s.order_ref, s.order_date, s.status, s.creator_name,
+                GREATEST(s.net_amount - ${DEDUCTION}, 0) AS net_amount,
+                CASE WHEN s.status = 'confirmed' THEN GREATEST(s.net_amount - ${DEDUCTION}, 0) ELSE 0 END AS revenue,
+                CASE WHEN s.status = 'confirmed' THEN GREATEST(s.net_amount - ${DEDUCTION}, 0) * ag.commission_rate / 100 ELSE 0 END AS commission
+           FROM sales s JOIN agents ag ON ag.id = s.agent_id
+          WHERE ag.status IN ('active','paused')
+       )
+       INSERT INTO snapshot_agent_totals (
+         run_id, agent_id, orders_total, revenue_total, commission_total,
+         orders_30d, revenue_30d, commission_30d, revenue_prev30d, avg_order_value, last_sale_date)
+       SELECT $1, ag.id,
+              COALESCE(a.orders, 0),
+              ROUND(COALESCE(a.revenue, 0)::numeric, 2)::float8,
+              ROUND(COALESCE(a.commission, 0)::numeric, 2)::float8,
+              COALESCE(w.orders, 0),
+              ROUND(COALESCE(w.revenue, 0)::numeric, 2)::float8,
+              ROUND(COALESCE(w.commission, 0)::numeric, 2)::float8,
+              ROUND(COALESCE(p.revenue, 0)::numeric, 2)::float8,
+              CASE WHEN COALESCE(a.orders, 0) > 0 THEN ROUND((a.revenue / a.orders)::numeric, 2)::float8 ELSE 0 END,
+              a.last_date
+         FROM agents ag
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission, MAX(e.order_date) AS last_date
+             FROM ae e WHERE e.agent_id = ag.id AND e.status = 'confirmed') a ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) AS orders, SUM(e.revenue) AS revenue, SUM(e.commission) AS commission
+             FROM ae e WHERE e.agent_id = ag.id AND e.status = 'confirmed' AND e.order_date >= $2 AND e.order_date <= $3) w ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT SUM(e.revenue) AS revenue
+             FROM ae e WHERE e.agent_id = ag.id AND e.status = 'confirmed' AND e.order_date >= $4 AND e.order_date <= $5) p ON TRUE
+        WHERE ag.status IN ('active','paused')`,
+      [runId, win30From, today, win60From, win30PrevTo]
+    );
+    await t.run(
+      `INSERT INTO snapshot_agent_days (run_id, agent_id, day, orders, revenue, commission)
+       SELECT $1, ag.id, d.day,
+              COALESCE(e.orders, 0),
+              ROUND(COALESCE(e.revenue, 0)::numeric, 2)::float8,
+              ROUND(COALESCE(e.commission, 0)::numeric, 2)::float8
+         FROM agents ag
+         CROSS JOIN (SELECT to_char(gs, 'YYYY-MM-DD') AS day FROM generate_series($2::date, $3::date, interval '1 day') AS gs) d
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*) AS orders,
+                  SUM(GREATEST(s.net_amount - ${DEDUCTION}, 0)) AS revenue,
+                  SUM(GREATEST(s.net_amount - ${DEDUCTION}, 0) * ag.commission_rate / 100) AS commission
+             FROM sales s WHERE s.agent_id = ag.id AND s.status = 'confirmed' AND s.order_date = d.day) e ON TRUE
+        WHERE ag.status IN ('active','paused')`,
+      [runId, chartFrom, today]
+    );
+    await t.run(
+      `INSERT INTO snapshot_agent_orders (run_id, agent_id, brand_id, order_ref, order_date, revenue, commission, status, creator_name)
+       SELECT $1, x.agent_id, x.brand_id, x.order_ref, x.order_date,
+              ROUND(x.net::numeric, 2)::float8,
+              ROUND((CASE WHEN x.status = 'confirmed' THEN x.net * x.rate / 100 ELSE 0 END)::numeric, 2)::float8,
+              x.status, x.creator_name
+         FROM (
+           SELECT s.agent_id, s.brand_id, s.order_ref, s.order_date, s.status,
+                  COALESCE(c.full_name, s.creator_name) AS creator_name,
+                  GREATEST(s.net_amount - ${DEDUCTION}, 0) AS net, ag.commission_rate AS rate,
+                  ROW_NUMBER() OVER (PARTITION BY s.agent_id ORDER BY s.order_date DESC, s.id DESC) AS rn
+             FROM sales s JOIN agents ag ON ag.id = s.agent_id
+             LEFT JOIN creators c ON c.id = s.creator_id
+            WHERE ag.status IN ('active','paused')
+         ) x
+        WHERE x.rn <= $2`,
+      [runId, ORDER_LIST_LIMIT]
+    );
+
     // --- Tagesreihe für den Chart, über alle Marken zusammen ------------------
     await t.run(
       `WITH earnings AS (${EARNINGS})
@@ -326,6 +399,24 @@ async function dashboardFor(creatorId) {
   return { run, totals, days, orders, brands };
 }
 
+/** Alles, was das Agenten-Dashboard braucht – ausschließlich aus dem Snapshot. */
+async function agentDashboardFor(agentId) {
+  const run = await latestRun();
+  if (!run) return null;
+  const totals = await db.one('SELECT * FROM snapshot_agent_totals WHERE run_id = $1 AND agent_id = $2', [run.id, agentId]);
+  if (!totals) return { run, totals: null, days: [], orders: [] };
+  const [days, orders] = await Promise.all([
+    db.many('SELECT day, orders, revenue, commission FROM snapshot_agent_days WHERE run_id = $1 AND agent_id = $2 ORDER BY day', [run.id, agentId]),
+    db.many(
+      `SELECT o.order_ref, o.order_date, o.revenue, o.commission, o.status, o.creator_name, b.name AS brand_name
+         FROM snapshot_agent_orders o LEFT JOIN brands b ON b.id = o.brand_id
+        WHERE o.run_id = $1 AND o.agent_id = $2 ORDER BY o.order_date DESC, o.order_ref DESC`,
+      [run.id, agentId]
+    ),
+  ]);
+  return { run, totals, days, orders };
+}
+
 /** Alles, was das Vermittler-Dashboard braucht – ausschließlich aus dem Snapshot. */
 async function brokerDashboardFor(brokerId) {
   const run = await latestRun();
@@ -406,6 +497,7 @@ module.exports = {
   latestRun,
   dashboardFor,
   brokerDashboardFor,
+  agentDashboardFor,
   hasRunToday,
   hasRunForSlot,
   needsSafetyRun,

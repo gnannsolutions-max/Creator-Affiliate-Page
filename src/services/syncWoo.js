@@ -25,6 +25,12 @@ const brandsLib = require('../lib/brands');
 
 const BATCH = 200;
 
+/** „A12“, „a-12“, „Agent12“, „AGENT 12“ → „A12“; alles andere → null. */
+function normalizeAgentCode(value) {
+  const m = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').match(/^(?:AGENT|A)([0-9]{1,6})$/);
+  return m ? `A${Number(m[1])}` : null;
+}
+
 function metaValue(order, key) {
   if (!key) return null;
   const want = String(key).toLowerCase();
@@ -110,7 +116,9 @@ async function lookups(brandId) {
     const h = normalizeName(c.instagram);
     if (h) byHandle.set(h, byHandle.has(h) ? 'ambiguous' : c);
   }
-  return { byCode, byName, byHandle };
+  const agents = await db.many("SELECT id, agent_code_norm, commission_rate FROM agents WHERE status IN ('active','paused')");
+  const byAgent = new Map(agents.map((a) => [a.agent_code_norm, a]));
+  return { byCode, byName, byHandle, byAgent };
 }
 
 /** Eine WooCommerce-Bestellung → Zeile für `sales` (oder null mit Grund). */
@@ -179,8 +187,22 @@ function mapOrder(order, lk, opts) {
     }
   }
 
+  // Agentenkennung aus dem Link: utm_campaign=A12 oder Agent12. Unabhängig vom
+  // Creator – beide können an derselben Bestellung hängen.
+  let agentCode = null;
+  let agentId = null;
+  const camp = metaValue(order, '_wc_order_attribution_utm_campaign');
+  const agentNorm = normalizeAgentCode(camp);
+  if (agentNorm) {
+    agentCode = agentNorm;
+    const hit = lk.byAgent && lk.byAgent.get(agentNorm);
+    if (hit) agentId = hit.id;
+  }
+
   return {
     row: {
+      agent_id: agentId,
+      agent_code: agentCode,
       order_ref: `W${order.id}`,
       code_norm: codeNorm,
       order_date: date,
@@ -226,7 +248,7 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
 
   const rows = [];
   const problems = [];
-  const stats = { byCode: 0, byUtm: 0, byMeta: 0, unassigned: 0, unknownNames: new Map() };
+  const stats = { byCode: 0, byUtm: 0, byMeta: 0, unassigned: 0, unknownNames: new Map(), withAgent: 0, unknownAgents: new Map() };
   for (const o of orders) {
     const m = mapOrder(o, lk, opts);
     if (m.skip) {
@@ -234,6 +256,8 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
       continue;
     }
     rows.push(m.row);
+    if (m.row.agent_id) stats.withAgent += 1;
+    else if (m.row.agent_code) stats.unknownAgents.set(m.row.agent_code, (stats.unknownAgents.get(m.row.agent_code) || 0) + 1);
     if (m.via === 'code') stats.byCode += 1;
     else if (m.via === 'utm') stats.byUtm += 1;
     else if (m.via === 'meta') stats.byMeta += 1;
@@ -256,19 +280,20 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
       const chunk = rows.slice(i, i + BATCH);
       const values = [];
       const ph = chunk.map((r, idx) => {
-        const b = idx * 9;
-        values.push(r.order_ref, r.code_norm, r.order_date, r.gross_amount, r.net_amount, r.status, r.creator_id, r.commission_rate, r.creator_name);
-        return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${chunk.length * 9 + 1},$${chunk.length * 9 + 2})`;
+        const b = idx * 11;
+        values.push(r.order_ref, r.code_norm, r.order_date, r.gross_amount, r.net_amount, r.status, r.creator_id, r.commission_rate, r.creator_name, r.agent_id, r.agent_code);
+        return `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5},$${b + 6},$${b + 7},$${b + 8},$${b + 9},$${b + 10},$${b + 11},$${chunk.length * 11 + 1},$${chunk.length * 11 + 2})`;
       });
       values.push(imp.id, brand.id);
       const res = await t.many(
-        `INSERT INTO sales (order_ref, code_norm, order_date, gross_amount, net_amount, status, creator_id, commission_rate, creator_name, import_id, brand_id)
+        `INSERT INTO sales (order_ref, code_norm, order_date, gross_amount, net_amount, status, creator_id, commission_rate, creator_name, agent_id, agent_code, import_id, brand_id)
          VALUES ${ph.join(',')}
          ON CONFLICT (brand_id, order_ref) DO UPDATE SET
            code_norm = EXCLUDED.code_norm, order_date = EXCLUDED.order_date,
            gross_amount = EXCLUDED.gross_amount, net_amount = EXCLUDED.net_amount,
            status = EXCLUDED.status, creator_id = EXCLUDED.creator_id,
            commission_rate = EXCLUDED.commission_rate, creator_name = EXCLUDED.creator_name,
+           agent_id = EXCLUDED.agent_id, agent_code = EXCLUDED.agent_code,
            import_id = EXCLUDED.import_id, updated_at = now()
          RETURNING (xmax = 0) AS is_new`,
         values
@@ -303,8 +328,10 @@ async function syncWooOrders({ actor = 'woo', full = false } = {}) {
     byMeta: stats.byMeta,
     unassigned: stats.unassigned,
     unknownNames: [...stats.unknownNames.entries()].map(([name, count]) => ({ name, count })),
+    withAgent: stats.withAgent,
+    unknownAgents: [...stats.unknownAgents.entries()].map(([code, count]) => ({ code, count })),
     problems,
   };
 }
 
-module.exports = { syncWooOrders, mapOrder, orderNet, mapStatus };
+module.exports = { syncWooOrders, mapOrder, orderNet, mapStatus, normalizeAgentCode };

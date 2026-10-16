@@ -160,6 +160,23 @@ Liste je Creator. Satz- und Zuordnungsänderungen wirken sofort.
 
 ---
 
+## Agenten
+
+Ein Agent verkauft das Produkt selbst. Seine Kennung (`A1`, `A2`, …, auch
+`Agent1`) steht in den Shop-Links als `utm_campaign`; WooCommerce speichert
+sie an der Bestellung. Eine Bestellung kann gleichzeitig einem Creator
+(`utm_source=CreatorN`) und einem Agenten gehören – beide bekommen ihre eigene
+Provision auf den bereinigten Nettoumsatz.
+
+Agenten bewerben sich unter `/agent-werden` mit ihrer Kennung; die Bewerbung
+landet unter *Admin → Agenten* als „Ausstehend“. Freigabe = Provision in %
+eintragen, Status „Aktiv“. Beim Freigeben werden alle Bestellungen, die schon
+mit dieser Kennung eingegangen sind, dem Agenten zugeschrieben. Login wie bei
+Creatorn über `/login`; Dashboard unter `/agent` mit Umsatz, Provision, Verlauf
+und Bestellliste (inkl. Creator je Bestellung).
+
+---
+
 ## WooCommerce-Anbindung (statt Upload)
 
 Ist der Shop angebunden, holen die Sicherheitsläufe um 10:30 und 17:30 Uhr die

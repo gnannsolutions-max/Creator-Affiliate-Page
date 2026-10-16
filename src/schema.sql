@@ -462,3 +462,77 @@ CREATE TABLE IF NOT EXISTS snapshot_broker_creators (
   last_sale_date TEXT,
   PRIMARY KEY (run_id, broker_id, creator_id)
 );
+
+-- --- Agenten -----------------------------------------------------------------
+--  Ein Agent verkauft das Produkt selbst und steht in den Shop-Links als
+--  Kennung „A<Nummer>“ (auch „Agent<Nummer>“) in utm_campaign. Eine Bestellung
+--  kann gleichzeitig einem Creator (utm_source) und einem Agenten (utm_campaign)
+--  gehören; beide bekommen ihre eigene Provision auf dieselbe Bestellung.
+--
+--  Agenten bewerben sich mit ihrer Kennung über /agent-werden, werden im Admin
+--  mit individuellem Prozentsatz freigegeben und sehen im Dashboard alle
+--  Bestellungen, die über ihre Kennung liefen.
+CREATE TABLE IF NOT EXISTS agents (
+  id              BIGSERIAL PRIMARY KEY,
+  full_name       TEXT        NOT NULL,
+  email           TEXT        NOT NULL,
+  email_norm      TEXT        NOT NULL,
+  agent_code      TEXT        NOT NULL,          -- Anzeigeform, z. B. A12
+  agent_code_norm TEXT        NOT NULL,          -- A12 (immer A + Zahl)
+  commission_rate DOUBLE PRECISION NOT NULL DEFAULT 0,
+  status          TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','paused','rejected')),
+  phone           TEXT,
+  instagram       TEXT,
+  message         TEXT,
+  note            TEXT,
+  last_login_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agents_email ON agents(email_norm);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_agents_code  ON agents(agent_code_norm);
+
+-- Jede Umsatzzeile kann zusätzlich einen Agenten tragen.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS agent_id   BIGINT REFERENCES agents(id) ON DELETE SET NULL;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS agent_code TEXT;  -- Kennung aus dem Link, auch wenn (noch) kein Agent dazu existiert
+CREATE INDEX IF NOT EXISTS idx_sales_agent ON sales(agent_id, order_date);
+CREATE INDEX IF NOT EXISTS idx_sales_agent_code ON sales(agent_code) WHERE agent_code IS NOT NULL;
+
+ALTER TABLE login_tokens ADD COLUMN IF NOT EXISTS agent_id BIGINT REFERENCES agents(id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS snapshot_agent_totals (
+  run_id           BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  agent_id         BIGINT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  orders_total     INTEGER NOT NULL DEFAULT 0,
+  revenue_total    DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+  orders_30d       INTEGER NOT NULL DEFAULT 0,
+  revenue_30d      DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission_30d   DOUBLE PRECISION NOT NULL DEFAULT 0,
+  revenue_prev30d  DOUBLE PRECISION NOT NULL DEFAULT 0,
+  avg_order_value  DOUBLE PRECISION NOT NULL DEFAULT 0,
+  last_sale_date   TEXT,
+  PRIMARY KEY (run_id, agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS snapshot_agent_days (
+  run_id     BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  agent_id   BIGINT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  day        TEXT   NOT NULL,
+  orders     INTEGER NOT NULL DEFAULT 0,
+  revenue    DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission DOUBLE PRECISION NOT NULL DEFAULT 0,
+  PRIMARY KEY (run_id, agent_id, day)
+);
+
+CREATE TABLE IF NOT EXISTS snapshot_agent_orders (
+  run_id     BIGINT NOT NULL REFERENCES snapshot_runs(id) ON DELETE CASCADE,
+  agent_id   BIGINT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  brand_id   BIGINT,
+  order_ref  TEXT   NOT NULL,
+  order_date TEXT   NOT NULL,
+  revenue    DOUBLE PRECISION NOT NULL DEFAULT 0,
+  commission DOUBLE PRECISION NOT NULL DEFAULT 0,
+  status     TEXT   NOT NULL,
+  creator_name TEXT,
+  PRIMARY KEY (run_id, agent_id, brand_id, order_ref)
+);

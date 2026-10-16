@@ -11,7 +11,7 @@
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="<%= broker ? '/vermittler' : (creator ? '/dashboard' : (admin ? '/admin' : '/')) %>"><%= program.brand %> <span class="muted">Creator</span></a>
+    <a class="brand" href="<%= agent ? '/agent' : (broker ? '/vermittler' : (creator ? '/dashboard' : (admin ? '/admin' : '/'))) %>"><%= program.brand %> <span class="muted">Creator</span></a>
     <nav class="topnav">
       <% if (admin) { %>
         <a href="/admin" <%= nav === 'admin-home' ? 'class="is-active"' : '' %>>Übersicht</a>
@@ -19,6 +19,7 @@
         <a href="/admin/creators" <%= nav === 'admin-creators' ? 'class="is-active"' : '' %>>Creator</a>
         <% if (admin.role !== 'manager') { %>
           <a href="/admin/brokers" <%= nav === 'admin-brokers' ? 'class="is-active"' : '' %>>Vermittler</a>
+          <a href="/admin/agents" <%= nav === 'admin-agents' ? 'class="is-active"' : '' %>>Agenten</a>
           <a href="/admin/brands" <%= nav === 'admin-brands' ? 'class="is-active"' : '' %>>Marken</a>
           <a href="/admin/import" <%= nav === 'admin-import' ? 'class="is-active"' : '' %>>Umsätze</a>
           <a href="/admin/payouts" <%= nav === 'admin-payouts' ? 'class="is-active"' : '' %>>Auszahlungen</a>
@@ -26,6 +27,9 @@
           <a href="/admin/team" <%= nav === 'admin-team' ? 'class="is-active"' : '' %>>Zugänge</a>
         <% } %>
         <a href="/admin/logout">Abmelden<% if (admin.name) { %> <span class="muted">(<%= admin.name %>)</span><% } %></a>
+      <% } else if (agent) { %>
+        <a href="/agent" <%= nav === 'agent' ? 'class="is-active"' : '' %>>Dashboard</a>
+        <a href="/logout">Abmelden</a>
       <% } else if (broker) { %>
         <a href="/vermittler" <%= nav === 'broker' ? 'class="is-active"' : '' %>>Dashboard</a>
         <a href="/logout">Abmelden</a>
@@ -38,6 +42,7 @@
       <% } else { %>
         <a href="/bewerben" <%= nav === 'apply' ? 'class="is-active"' : '' %>>Bewerben</a>
         <a href="/vermittler-werden" <%= nav === 'broker-apply' ? 'class="is-active"' : '' %>>Vermittler werden</a>
+        <a href="/agent-werden" <%= nav === 'agent-apply' ? 'class="is-active"' : '' %>>Agent werden</a>
         <a href="/login" <%= nav === 'login' ? 'class="is-active"' : '' %>>Login</a>
       <% } %>
     </nav>

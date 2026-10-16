@@ -91,6 +91,7 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
     res.locals.asset = assets.asset;
     res.locals.creator = null;
     res.locals.broker = null;
+    res.locals.agent = null;
     res.locals.admin = null;
     res.locals.nav = null;
     res.locals.title = '';
@@ -143,10 +144,12 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
 
   app.use(auth.loadCreator);
   app.use(auth.loadBroker);
+  app.use(auth.loadAgent);
 
   app.use((req, res, next) => {
     res.locals.creator = req.creator || null;
     res.locals.broker = req.broker || null;
+    res.locals.agent = req.agent || null;
     next();
   });
 
@@ -154,12 +157,14 @@ function createApp({ serveStatic = true, autoMigrate = true } = {}) {
     res.locals.admin = { name: config.adminName };
     res.locals.creator = null;
     res.locals.broker = null;
+    res.locals.agent = null;
     next();
   });
 
   app.use('/admin', require('./routes/admin'));
   app.use('/', require('./routes/creator'));
   app.use('/', require('./routes/broker'));
+  app.use('/', require('./routes/agent'));
   app.use('/', require('./routes/public'));
 
   app.use((req, res) => {

@@ -1,0 +1,147 @@
+<%- include('../partials/head') %>
+
+<main class="wrap">
+  <div class="page-head">
+    <h1>Agenten</h1>
+    <p>Agenten verkaufen das Produkt selbst. Ihre Kennung (A1, A2, …) steckt als <span class="mono">utm_campaign</span> im Shop-Link; jede Bestellung damit zählt für sie – zusätzlich zum Creator, falls einer dranhängt. Interessenten bewerben sich unter <span class="mono"><%= baseUrl %>/agent-werden</span> mit der Kennung, die ihr ihnen gegeben habt.</p>
+  </div>
+
+  <% if (flash) { %><div class="note note--good"><p><%= flash %></p></div><% } %>
+
+  <% if (unclaimed.length) { %>
+  <div class="note note--warn">
+    <p><strong>Bestellungen mit Kennungen, zu denen es noch keinen freigegebenen Agenten gibt:</strong>
+      <%= unclaimed.map(function (u) { return u.agent_code + ' (' + u.n + ')'; }).join(', ') %>.
+      Sobald ein Agent mit dieser Kennung freigegeben wird, bekommt er diese Bestellungen automatisch.</p>
+  </div>
+  <% } %>
+
+  <% if (loginLink) { %>
+  <div class="card">
+    <h2>Login-Link für <%= editing.full_name.split(' ')[0] %></h2>
+    <p class="small muted">Das Portal verschickt diesen Link nicht – gib ihn über euren eigenen Kanal weiter. 30 Minuten gültig, einmal nutzbar. Danach meldet sich der Agent jederzeit über <%= baseUrl %>/login mit seiner E-Mail-Adresse an.</p>
+    <div class="code-display">
+      <div style="min-width:0;flex:1"><div class="mono" style="word-break:break-all;font-size:13px"><%= loginLink %></div></div>
+      <button class="btn btn--sm" type="button" data-copy="<%= loginLink %>">Link kopieren</button>
+    </div>
+  </div>
+  <% } %>
+
+  <% if (editing && editing.status === 'pending') { %>
+  <div class="note note--warn">
+    <p><strong>Bewerbung ausstehend.</strong> Provision eintragen, Status auf „Aktiv“ setzen und speichern – dann kann sich <%= editing.full_name.split(' ')[0] %> anmelden, und alle Bestellungen mit <span class="mono"><%= editing.agent_code %></span> werden ihm zugeschrieben.</p>
+    <p class="small">
+      <% if (editing.phone) { %>Telefon: <%= editing.phone %> · <% } %>
+      <% if (editing.instagram) { %>Instagram: @<%= editing.instagram %> · <% } %>
+      Beworben am <%= formatDateTimeDe(editing.created_at) %>
+    </p>
+    <% if (editing.message) { %><p class="small" style="white-space:pre-wrap"><%= editing.message %></p><% } %>
+  </div>
+  <% } %>
+
+  <% if (editing && (editing.status === 'active' || editing.status === 'paused')) { %>
+  <div class="card">
+    <h2>Links von <%= editing.full_name %></h2>
+    <p class="small muted">Jeder Shop-Link mit <span class="mono">?utm_campaign=<%= editing.agent_code %></span> zählt für diesen Agenten. Beispiel:</p>
+    <div class="code-display">
+      <div style="min-width:0;flex:1"><div class="mono" style="word-break:break-all;font-size:13px">https://swisspeptides.net/?utm_source=AGENT&utm_campaign=<%= editing.agent_code %></div></div>
+      <button class="btn btn--sm" type="button" data-copy="https://swisspeptides.net/?utm_source=AGENT&utm_campaign=<%= editing.agent_code %>">Link kopieren</button>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <form method="post" action="/admin/agents/<%= editing.id %>/login-link">
+        <button class="btn btn--ghost btn--sm" type="submit">Login-Link erzeugen</button>
+      </form>
+      <a class="btn btn--ghost btn--sm" href="/admin/agents">Neuen Agenten anlegen</a>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="card">
+    <h2><%= editing ? 'Agent bearbeiten' : 'Neuen Agenten anlegen' %></h2>
+    <form method="post" action="/admin/agents">
+      <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+      <div class="field">
+        <label for="full_name">Name</label>
+        <input type="text" id="full_name" name="full_name" required value="<%= values.full_name || '' %>" <%= errors.full_name ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.full_name) { %><p class="field-error"><%= errors.full_name %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="email">E-Mail-Adresse</label>
+        <input type="email" id="email" name="email" required value="<%= values.email || '' %>" <%= errors.email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.email) { %><p class="field-error"><%= errors.email %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="agent_code">Agentenkennung</label>
+        <p class="hint">„A“ plus Nummer, z. B. A12. Muss zur Kennung in den Shop-Links passen.</p>
+        <input type="text" id="agent_code" name="agent_code" required placeholder="A12" value="<%= values.agent_code || '' %>" <%= errors.agent_code ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.agent_code) { %><p class="field-error"><%= errors.agent_code %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="commission_rate">Provision in %</label>
+        <p class="hint">Anteil am Umsatz jeder Bestellung mit dieser Kennung – unabhängig von Creator- oder Vermittlerprovision.</p>
+        <input type="number" id="commission_rate" name="commission_rate" min="0" max="100" step="0.5" required value="<%= values.commission_rate !== undefined ? values.commission_rate : 10 %>" <%= errors.commission_rate ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.commission_rate) { %><p class="field-error"><%= errors.commission_rate %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <% if (values.status === 'pending') { %><option value="pending" disabled selected>Ausstehend – wähle Aktiv zum Freigeben</option><% } %>
+          <option value="active" <%= values.status === 'active' || !values.status ? 'selected' : '' %>>Aktiv – freigegeben, Bestellungen zählen</option>
+          <option value="paused" <%= values.status === 'paused' ? 'selected' : '' %>>Pausiert</option>
+          <option value="rejected" <%= values.status === 'rejected' ? 'selected' : '' %>>Abgelehnt</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="note">Interne Notiz <span class="optional">– sieht der Agent nicht</span></label>
+        <textarea id="note" name="note"><%= values.note || '' %></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn" type="submit"><%= editing ? 'Speichern' : 'Agent anlegen' %></button>
+        <% if (editing) { %><a class="btn btn--ghost" href="/admin/agents">Abbrechen</a><% } %>
+      </div>
+    </form>
+  </div>
+
+  <div class="card card--flush">
+    <div class="card-head"><h2>Alle Agenten</h2></div>
+    <% if (!rows.length) { %>
+      <div class="card-body"><p class="empty">Noch kein Agent angelegt.</p></div>
+    <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Kennung</th><th>Name</th><th>E-Mail</th><th class="num">Provision</th><th class="num">Bestellungen</th><th class="num">Umsatz 30 Tage</th><th class="num">Provision 30 Tage</th><th class="num">Provision gesamt</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <% rows.forEach(function (a) { %>
+          <tr>
+            <td class="mono"><%= a.agent_code %></td>
+            <td><%= a.full_name %></td>
+            <td class="small"><%= a.email %></td>
+            <td class="num"><%= percent(a.commission_rate) %></td>
+            <td class="num"><%= num(a.sales_count) %></td>
+            <td class="num"><%= money(a.revenue_30d || 0) %></td>
+            <td class="num"><%= money(a.commission_30d || 0) %></td>
+            <td class="num"><%= money(a.commission_total || 0) %></td>
+            <td><span class="badge badge--<%= a.status === 'active' ? 'good' : (a.status === 'pending' ? 'warn' : (a.status === 'rejected' ? 'danger' : 'neutral')) %>"><%= { active: 'Aktiv', pending: 'Ausstehend', paused: 'Pausiert', rejected: 'Abgelehnt' }[a.status] || a.status %></span></td>
+            <td class="num"><a class="btn btn--ghost btn--sm" href="/admin/agents/<%= a.id %>">Bearbeiten</a></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</main>
+
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+    var old = btn.textContent;
+    btn.textContent = 'Kopiert';
+    setTimeout(function () { btn.textContent = old; }, 1600);
+  });
+});
+</script>
+
+<%- include('../partials/foot') %>

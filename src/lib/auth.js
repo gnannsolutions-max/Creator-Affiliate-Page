@@ -6,6 +6,7 @@ const db = require('../db');
 
 const CREATOR_COOKIE = 'ca_session';
 const BROKER_COOKIE = 'ca_broker';
+const AGENT_COOKIE = 'ca_agent';
 const ADMIN_COOKIE = 'ca_admin';
 
 function hash(value) {
@@ -73,13 +74,47 @@ async function consumeAnyLoginToken(token) {
   const row = await db.one(
     `UPDATE login_tokens SET used_at = now()
       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-      RETURNING creator_id, broker_id`,
+      RETURNING creator_id, broker_id, agent_id`,
     [hash(String(token))]
   );
   if (!row) return null;
   if (row.creator_id) await db.run('UPDATE creators SET last_login_at = now() WHERE id = $1', [row.creator_id]);
   if (row.broker_id) await db.run('UPDATE brokers SET last_login_at = now() WHERE id = $1', [row.broker_id]);
+  if (row.agent_id) await db.run('UPDATE agents SET last_login_at = now() WHERE id = $1', [row.agent_id]);
   return row;
+}
+
+// --- Magic-Link für Agenten ---------------------------------------------------
+
+async function createAgentLoginToken(agentId) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expires = new Date(Date.now() + config.loginTokenTtlMinutes * 60_000);
+  await db.run('INSERT INTO login_tokens (agent_id, token_hash, expires_at) VALUES ($1, $2, $3)', [agentId, hash(token), expires.toISOString()]);
+  return token;
+}
+
+function startAgentSession(res, agentId) {
+  const maxAge = config.sessionTtlDays * 24 * 60 * 60 * 1000;
+  res.cookie(AGENT_COOKIE, sign({ aid: String(agentId), exp: Date.now() + maxAge }), cookieOptions(maxAge));
+}
+
+function endAgentSession(res) {
+  res.clearCookie(AGENT_COOKIE, { path: '/' });
+}
+
+async function loadAgent(req, _res, next) {
+  try {
+    const payload = unsign(req.cookies?.[AGENT_COOKIE]);
+    if (payload?.aid) req.agent = await db.one('SELECT * FROM agents WHERE id = $1', [payload.aid]);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+function requireAgent(req, res, next) {
+  if (!req.agent) return res.redirect('/login');
+  next();
 }
 
 // --- Magic-Link für Vermittler ------------------------------------------------
@@ -244,6 +279,11 @@ function requireRole(...roles) {
 }
 
 module.exports = {
+  createAgentLoginToken,
+  startAgentSession,
+  endAgentSession,
+  loadAgent,
+  requireAgent,
   consumeAnyLoginToken,
   createBrokerLoginToken,
   startBrokerSession,

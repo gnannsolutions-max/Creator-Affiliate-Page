@@ -1,0 +1,70 @@
+<%- include('partials/head') %>
+
+<main class="wrap wrap--narrow">
+  <div class="page-head">
+    <h1>Als Agent bewerben</h1>
+    <p>Du verkaufst das Produkt selbst und wirst an jeder Bestellung beteiligt, die über deine Kennung läuft. In deinem Dashboard siehst du jederzeit alle deine Verkäufe und was dir davon zusteht.</p>
+  </div>
+
+  <% if (sent) { %>
+    <div class="note note--good">
+      <p><strong>Danke, deine Bewerbung ist da.</strong> Wir sehen sie uns an und melden uns persönlich bei dir. Sobald du freigeschaltet bist, zählt jede Bestellung mit deiner Kennung für dich, und du bekommst den Zugang zu deinem Dashboard.</p>
+    </div>
+  <% } else { %>
+
+  <% if (errors.form) { %>
+    <div class="note note--danger"><p><%= errors.form %></p></div>
+  <% } else if (Object.keys(errors).length) { %>
+    <div class="note note--danger"><p><strong>Da fehlt noch etwas.</strong> Bitte sieh dir die markierten Felder an.</p></div>
+  <% } %>
+
+  <div class="card">
+    <form method="post" action="/agent-werden" novalidate>
+      <div class="field">
+        <label for="full_name">Vollständiger Name</label>
+        <input type="text" id="full_name" name="full_name" required autocomplete="name" value="<%= values.full_name || '' %>" <%= errors.full_name ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.full_name) { %><p class="field-error"><%= errors.full_name %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="email">E-Mail-Adresse</label>
+        <p class="hint">Hierüber läuft die Freigabe und dein Login zum Dashboard.</p>
+        <input type="email" id="email" name="email" required autocomplete="email" value="<%= values.email || '' %>" <%= errors.email ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.email) { %><p class="field-error"><%= errors.email %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="agent_code">Deine Agentenkennung</label>
+        <p class="hint">Die Kennung hast du von uns bekommen – „A“ plus deine Nummer, z. B. <strong>A12</strong>. Sie steckt in jedem Link, über den du verkaufst.</p>
+        <input type="text" id="agent_code" name="agent_code" required placeholder="A12" maxlength="20" spellcheck="false" value="<%= values.agent_code || '' %>" <%= errors.agent_code ? 'aria-invalid="true"' : '' %>>
+        <% if (errors.agent_code) { %><p class="field-error"><%= errors.agent_code %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="phone">Telefon / WhatsApp <span class="optional">– freiwillig</span></label>
+        <input type="tel" id="phone" name="phone" autocomplete="tel" style="width:100%" value="<%= values.phone || '' %>">
+      </div>
+      <div class="field">
+        <label for="instagram">Instagram <span class="optional">– freiwillig</span></label>
+        <div class="input-prefix"><span>@</span><input type="text" id="instagram" name="instagram" placeholder="deinname" value="<%= values.instagram || '' %>"></div>
+      </div>
+      <div class="field">
+        <label for="message">Kurz zu dir <span class="optional">– freiwillig</span></label>
+        <textarea id="message" name="message" rows="4"><%= values.message || '' %></textarea>
+      </div>
+
+      <div class="checkline">
+        <input type="checkbox" id="accept_terms" name="accept_terms" value="1" <%= values.accept_terms ? 'checked' : '' %>>
+        <label for="accept_terms">Ich habe die <a href="/teilnahmebedingungen" target="_blank">Teilnahmebedingungen</a> gelesen und halte mich daran.</label>
+      </div>
+      <% if (errors.accept_terms) { %><p class="field-error" style="margin-top:-6px;margin-bottom:12px"><%= errors.accept_terms %></p><% } %>
+      <div class="checkline">
+        <input type="checkbox" id="accept_privacy" name="accept_privacy" value="1" <%= values.accept_privacy ? 'checked' : '' %>>
+        <label for="accept_privacy">Ich bin mit der Verarbeitung meiner Daten gemäß <a href="/datenschutz" target="_blank">Datenschutzhinweisen</a> einverstanden.</label>
+      </div>
+      <% if (errors.accept_privacy) { %><p class="field-error" style="margin-top:-6px;margin-bottom:12px"><%= errors.accept_privacy %></p><% } %>
+
+      <button class="btn btn--wide" type="submit">Bewerbung abschicken</button>
+    </form>
+  </div>
+  <% } %>
+</main>
+
+<%- include('partials/foot') %>

@@ -234,10 +234,69 @@ router.post('/vermittler-werden', async (req, res) => {
   return renderBrokerApply(res, { sent: true });
 });
 
+// --- Agenten-Bewerbung -------------------------------------------------------
+
+const { normalizeAgentCode } = require('../services/syncWoo');
+
+function renderAgentApply(res, { values = {}, errors = {}, sent = false, status = 200 } = {}) {
+  return res.status(status).render('agent-apply', { title: 'Als Agent bewerben', nav: 'agent-apply', values, errors, sent });
+}
+
+router.get('/agent-werden', (req, res) => renderAgentApply(res));
+
+router.post('/agent-werden', async (req, res) => {
+  const ip = rateLimit.clientIp(req);
+  const gate = await rateLimit.hit(`apply:${ip}`, LIMITS.apply);
+  if (!gate.allowed) {
+    res.set('Retry-After', String(gate.retryAfter));
+    return renderAgentApply(res, { status: 429, errors: { form: 'Von dieser Verbindung sind gerade zu viele Bewerbungen eingegangen. Bitte versuche es in einer Stunde noch einmal.' } });
+  }
+  const values = {
+    full_name: String(req.body.full_name || '').trim().replace(/\s+/g, ' ').slice(0, 120),
+    email: String(req.body.email || '').trim().slice(0, 200),
+    agent_code: String(req.body.agent_code || '').trim().slice(0, 20),
+    phone: String(req.body.phone || '').trim().slice(0, 60) || null,
+    instagram: String(req.body.instagram || '').trim().replace(/^@/, '').slice(0, 60) || null,
+    message: String(req.body.message || '').trim().slice(0, 2000) || null,
+    accept_terms: req.body.accept_terms,
+    accept_privacy: req.body.accept_privacy,
+  };
+  const errors = {};
+  if (values.full_name.length < 3 || !values.full_name.includes(' ')) errors.full_name = 'Bitte gib deinen vollständigen Vor- und Nachnamen an.';
+  const emailNorm = normalizeEmail(values.email);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailNorm)) errors.email = 'Bitte gib eine gültige E-Mail-Adresse an.';
+  else if (await db.one('SELECT id FROM agents WHERE email_norm = $1', [emailNorm])) errors.email = 'Für diese E-Mail-Adresse liegt bereits eine Bewerbung vor.';
+  const codeNorm = normalizeAgentCode(values.agent_code);
+  if (!values.agent_code) errors.agent_code = 'Bitte gib die Agentenkennung ein, die du von uns bekommen hast (z. B. A12).';
+  else if (!codeNorm) errors.agent_code = 'Die Kennung besteht aus „A“ und deiner Nummer, z. B. A12. Bitte genau so eingeben, wie du sie von uns bekommen hast.';
+  else if (await db.one('SELECT id FROM agents WHERE agent_code_norm = $1', [codeNorm])) errors.agent_code = 'Diese Agentenkennung ist bereits vergeben. Bitte prüfe deine Nummer oder melde dich bei uns.';
+  if (!values.accept_terms) errors.accept_terms = 'Ohne Zustimmung zu den Teilnahmebedingungen können wir dich nicht aufnehmen.';
+  if (!values.accept_privacy) errors.accept_privacy = 'Bitte bestätige die Datenschutzhinweise.';
+  if (Object.keys(errors).length) return renderAgentApply(res, { values, errors, status: 400 });
+
+  const agent = await db.one(
+    `INSERT INTO agents (full_name, email, email_norm, agent_code, agent_code_norm, commission_rate, status, phone, instagram, message)
+     VALUES ($1, $2, $3, $4, $4, 0, 'pending', $5, $6, $7) RETURNING *`,
+    [values.full_name, values.email, emailNorm, codeNorm, values.phone, values.instagram, values.message]
+  );
+  await db.log('agent', 'agent.application', agent.email, `${agent.full_name} (${agent.agent_code})`);
+  if (config.notifyEmail) {
+    await mailer
+      .send({
+        to: config.notifyEmail, kind: 'notification', link: `${config.baseUrl}/admin/agents/${agent.id}`,
+        subject: `Neue Agenten-Bewerbung: ${agent.full_name} (${agent.agent_code})`,
+        text: `Neue Agenten-Bewerbung im Portal.\n\nName:    ${agent.full_name}\nKennung: ${agent.agent_code}\nE-Mail:  ${agent.email}${agent.phone ? `\nTelefon: ${agent.phone}` : ''}${agent.message ? `\n\n${agent.message}` : ''}\n\nFreigeben: ${config.baseUrl}/admin/agents/${agent.id}`,
+      })
+      .catch((err) => console.error('Benachrichtigung fehlgeschlagen:', err.message));
+  }
+  return renderAgentApply(res, { sent: true });
+});
+
 // --- Login -------------------------------------------------------------------
 
 router.get('/login', (req, res) => {
   if (req.broker) return res.redirect('/vermittler');
+  if (req.agent) return res.redirect('/agent');
   if (req.creator) return res.redirect(req.creator.status === 'approved' ? '/dashboard' : '/status');
   res.render('login', { title: 'Login', nav: 'login', sent: false, error: null, hasSmtp: mailer.hasSmtp() });
 });
@@ -267,6 +326,7 @@ router.post('/login', async (req, res) => {
 
   const creator = await db.one('SELECT * FROM creators WHERE email_norm = $1', [email]);
   const broker = creator ? null : await db.one("SELECT * FROM brokers WHERE email_norm = $1 AND status IN ('active','paused')", [email]);
+  const agent = creator || broker ? null : await db.one("SELECT * FROM agents WHERE email_norm = $1 AND status IN ('active','paused')", [email]);
 
   // Bewusst immer dieselbe Rückmeldung – sonst verrät das Formular,
   // welche Adressen im System sind.
@@ -281,6 +341,12 @@ router.post('/login', async (req, res) => {
     const mail = mailer.templates.loginLink(broker, `${config.baseUrl}/login/${token}`);
     await mailer
       .send({ to: broker.email, ...mail })
+      .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
+  } else if (agent) {
+    const token = await auth.createAgentLoginToken(agent.id);
+    const mail = mailer.templates.loginLink(agent, `${config.baseUrl}/login/${token}`);
+    await mailer
+      .send({ to: agent.email, ...mail })
       .catch((err) => console.error('Mailversand fehlgeschlagen:', err.message));
   }
 
@@ -298,6 +364,10 @@ router.get('/login/:token', async (req, res) => {
   if (hit && hit.broker_id) {
     auth.startBrokerSession(res, hit.broker_id);
     return res.redirect('/vermittler');
+  }
+  if (hit && hit.agent_id) {
+    auth.startAgentSession(res, hit.agent_id);
+    return res.redirect('/agent');
   }
   const creatorId = hit ? hit.creator_id : null;
   if (!creatorId) {
@@ -317,6 +387,7 @@ router.get('/login/:token', async (req, res) => {
 router.get('/logout', (req, res) => {
   auth.endCreatorSession(res);
   auth.endBrokerSession(res);
+  auth.endAgentSession(res);
   res.redirect('/login');
 });
 

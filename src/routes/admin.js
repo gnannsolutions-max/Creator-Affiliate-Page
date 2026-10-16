@@ -130,7 +130,7 @@ router.get('/', async (req, res) => {
        (SELECT COUNT(*) FROM brokers WHERE status = 'pending') AS brokers_pending`
   );
 
-  let kpi = { revenue: 0, orders: 0, creatorCommission: 0, agentCommission: 0, brokerShare: 0, commissionOpen: 0, revenuePrev: 0 };
+  let kpi = { revenue: 0, gross: 0, net: 0, orders: 0, creatorCommission: 0, agentCommission: 0, brokerShare: 0, commissionOpen: 0, revenuePrev: 0, grossPrev: 0 };
   let days = [];
   let creators = [];
   let agents = [];
@@ -143,12 +143,15 @@ router.get('/', async (req, res) => {
     const from30 = addDays(localDate(), -29);
     const base = await db.one(
       `SELECT COUNT(*)::int AS orders,
+              COALESCE(SUM(s.gross_amount), 0) AS gross,
+              COALESCE(SUM(s.net_amount), 0) AS net,
               COALESCE(SUM(GREATEST(s.net_amount - $1, 0)), 0) AS revenue
          FROM sales s WHERE s.status = 'confirmed' ${win}`,
       period === 'total' ? [config.program.commissionDeduction] : [config.program.commissionDeduction, from30]
     );
-    const prev = period === 'total' ? { revenue: 0 } : await db.one(
-      `SELECT COALESCE(SUM(GREATEST(s.net_amount - $1, 0)), 0) AS revenue
+    const prev = period === 'total' ? { revenue: 0, gross: 0 } : await db.one(
+      `SELECT COALESCE(SUM(s.gross_amount), 0) AS gross,
+              COALESCE(SUM(GREATEST(s.net_amount - $1, 0)), 0) AS revenue
          FROM sales s WHERE s.status = 'confirmed' AND s.order_date >= $2 AND s.order_date < $3`,
       [config.program.commissionDeduction, addDays(localDate(), -59), from30]
     );
@@ -158,7 +161,8 @@ router.get('/', async (req, res) => {
     const a = await db.one(`SELECT COALESCE(SUM(${col('commission')}), 0) AS commission FROM snapshot_agent_totals WHERE run_id = $1`, [run.id]);
     const b = await db.one(`SELECT COALESCE(SUM(${col('share')}), 0) AS share FROM snapshot_broker_totals WHERE run_id = $1`, [run.id]);
     kpi = {
-      revenue: Number(base.revenue), orders: base.orders, revenuePrev: Number(prev.revenue),
+      revenue: Number(base.revenue), gross: Number(base.gross), net: Number(base.net), orders: base.orders,
+      revenuePrev: Number(prev.revenue), grossPrev: Number(prev.gross),
       creatorCommission: Number(c.commission), agentCommission: Number(a.commission), brokerShare: Number(b.share),
       commissionOpen: Number(c.open),
     };
@@ -166,10 +170,11 @@ router.get('/', async (req, res) => {
     days = await db.many(
       `SELECT to_char(gs, 'YYYY-MM-DD') AS day,
               COALESCE(x.orders, 0)::int AS orders,
-              ROUND(COALESCE(x.revenue, 0)::numeric, 2)::float8 AS revenue
+              ROUND(COALESCE(x.revenue, 0)::numeric, 2)::float8 AS revenue,
+              ROUND(COALESCE(x.gross, 0)::numeric, 2)::float8 AS gross
          FROM generate_series($2::date, $3::date, interval '1 day') gs
          LEFT JOIN LATERAL (
-           SELECT COUNT(*) AS orders, SUM(GREATEST(s.net_amount - $1, 0)) AS revenue
+           SELECT COUNT(*) AS orders, SUM(s.gross_amount) AS gross, SUM(GREATEST(s.net_amount - $1, 0)) AS revenue
              FROM sales s WHERE s.status = 'confirmed' AND s.order_date = to_char(gs, 'YYYY-MM-DD')) x ON TRUE
         ORDER BY gs`,
       [config.program.commissionDeduction, from30, localDate()]
@@ -201,7 +206,7 @@ router.get('/', async (req, res) => {
     partnerCounts,
     akquise,
     kpi,
-    chartHtml: days.length ? barChart(days, { height: 200 }) : '',
+    chartHtml: days.length ? barChart(days, { valueKey: 'gross', height: 200 }) : '',
     creatorRank: rankBars(
       creators.map((c) => ({ label: c.full_name, sub: c.requested_code, value: c.revenue, secondary: `${num(c.orders)} Best. · ${money(c.commission)} Prov.`, href: `/admin/creators/${c.id}` })),
       { emptyText: 'Noch keine Creator-Umsätze.' }

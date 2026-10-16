@@ -36,18 +36,20 @@
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-label">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %></div>
-      <div class="stat-value"><%= money(kpi.revenue) %></div>
-      <% if (period === '30d') { const d = delta(kpi.revenue, kpi.revenuePrev); %>
+      <div class="stat-label">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %> (brutto)</div>
+      <div class="stat-value"><%= money(kpi.gross) %></div>
+      <% if (period === '30d') { const d = delta(kpi.gross, kpi.grossPrev); %>
         <div class="stat-delta <%= d.direction %>"><%= d.text %> vs. 30 Tage davor</div>
-      <% } else { %>
-        <div class="stat-sub">bereinigter Nettoumsatz</div>
       <% } %>
+      <div class="kpi-split">
+        <span>Netto <b><%= money(kpi.net) %></b></span>
+        <span>Provisionsbasis <b><%= money(kpi.revenue) %></b></span>
+      </div>
     </div>
     <div class="stat">
       <div class="stat-label">Bestellungen</div>
       <div class="stat-value"><%= num(kpi.orders) %></div>
-      <div class="stat-sub"><%= kpi.orders ? 'Ø ' + money(kpi.revenue / kpi.orders) : '–' %></div>
+      <div class="stat-sub"><%= kpi.orders ? 'Ø ' + money(kpi.gross / kpi.orders) + ' brutto' : '–' %></div>
     </div>
     <div class="stat">
       <div class="stat-label">Auszuschütten <%= period === 'total' ? 'gesamt' : '30 Tage' %></div>
@@ -71,8 +73,8 @@
 
   <div class="card card--flush">
     <div class="card-head">
-      <h2>Umsatz der letzten 30 Tage</h2>
-      <span class="sub">Alle Bestellungen · nur bestätigte · Stornos und Erstattungen fallen heraus</span>
+      <h2>Bruttoumsatz der letzten 30 Tage</h2>
+      <span class="sub">Alle bestätigten Bestellungen · Stornos und Erstattungen fallen heraus</span>
     </div>
     <div class="card-body"><%- chartHtml || '<p class="empty">Noch keine Bestellungen.</p>' %></div>
   </div>
@@ -81,14 +83,14 @@
     <div class="card card--flush">
       <div class="card-head">
         <h2>Creator</h2>
-        <span class="sub">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
+        <span class="sub">Provisionsbasis <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
       </div>
       <%- creatorRank %>
     </div>
     <div class="card card--flush rank--agent">
       <div class="card-head">
         <h2>Agenten</h2>
-        <span class="sub">Umsatz <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
+        <span class="sub">Provisionsbasis <%= period === 'total' ? 'gesamt' : '30 Tage' %> · Top 15</span>
       </div>
       <%- agentRank %>
     </div>
@@ -98,7 +100,7 @@
   <div class="card card--flush" style="margin-top:16px">
     <div class="card-head">
       <h2>Vermittler</h2>
-      <span class="sub">Umsatz ihrer Creator <%= period === 'total' ? 'gesamt' : '30 Tage' %></span>
+      <span class="sub">Provisionsbasis ihrer Creator <%= period === 'total' ? 'gesamt' : '30 Tage' %></span>
     </div>
     <%- brokerRank %>
   </div>
